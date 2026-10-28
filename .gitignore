@@ -17,6 +17,11 @@ deploy/**/eval-results/
 .bob/
 
 
+# Fetched source data. Rebuild with: uv run python -m crosswalk_mcp.snapshot fetch
+# The manifest is committed; it records the hash of every file the build used.
+data/raw/*
+!data/raw/manifest.json
+
 # Python
 __pycache__/
 *.pyc

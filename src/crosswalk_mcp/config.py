@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     mcp_host: str = "0.0.0.0"
     mcp_port: int = 8000
 
+    # ── Data files ────────────────────────────────────────────────────────────
+    # Root for fetched source files (data/raw) and the built store. Relative
+    # paths resolve against the working directory the server starts in.
+    data_dir: str = "data"
+
     # ── Dataset API keys ──────────────────────────────────────────────────────
     # Add a typed field for each API key your tools need, then read it from
     # `settings.<field>` in your tool. Document the matching env var in

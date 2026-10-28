@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "written_at": "2026-10-28T20:26:21+00:00",
+  "manifest_hash": "4078c6faffbffadce31d5ed7d6bf6ee3e96b141555c156a5bef25172fa137f19",
+  "sources": [
+    {
+      "key": "baseline_high",
+      "url": "https://raw.githubusercontent.com/usnistgov/oscal-content/f0de6d8d8c059d374f15e0ae07508d82e370fc1d/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_HIGH-baseline-resolved-profile_catalog.json",
+      "pin": "f0de6d8d8c059d374f15e0ae07508d82e370fc1d",
+      "filename": "oscal_sp800_53b_high.json",
+      "bytes": 4637935,
+      "sha256": "a408708dcc11c864ebf98e8df9f64c07e0daf778e33f8bd71b40120da3db6a96",
+      "fetched_at": "2026-10-28T20:26:21+00:00"
+    },
+    {
+      "key": "baseline_low",
+      "url": "https://raw.githubusercontent.com/usnistgov/oscal-content/f0de6d8d8c059d374f15e0ae07508d82e370fc1d/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_LOW-baseline-resolved-profile_catalog.json",
+      "pin": "f0de6d8d8c059d374f15e0ae07508d82e370fc1d",
+      "filename": "oscal_sp800_53b_low.json",
+      "bytes": 2631225,
+      "sha256": "1399db7af250941149d22c3d7070d7e5cc0d52c49a6d71ca17e2ea2f8539b3c3",
+      "fetched_at": "2026-10-28T20:26:20+00:00"
+    },
+    {
+      "key": "baseline_moderate",
+      "url": "https://raw.githubusercontent.com/usnistgov/oscal-content/f0de6d8d8c059d374f15e0ae07508d82e370fc1d/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json",
+      "pin": "f0de6d8d8c059d374f15e0ae07508d82e370fc1d",
+      "filename": "oscal_sp800_53b_moderate.json",
+      "bytes": 3929498,
+      "sha256": "4d254976acfcb6b208538c6f859bca516e6e5bf220fbfc8d3bbfb4afb60838ec",
+      "fetched_at": "2026-10-28T20:26:20+00:00"
+    },
+    {
+      "key": "baseline_privacy",
+      "url": "https://raw.githubusercontent.com/usnistgov/oscal-content/f0de6d8d8c059d374f15e0ae07508d82e370fc1d/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_PRIVACY-baseline-resolved-profile_catalog.json",
+      "pin": "f0de6d8d8c059d374f15e0ae07508d82e370fc1d",
+      "filename": "oscal_sp800_53b_privacy.json",
+      "bytes": 1768315,
+      "sha256": "3c161f063e372cce25429d37110dfbc0c911603e946cd17c59af65b8db423caf",
+      "fetched_at": "2026-10-28T20:26:21+00:00"
+    },
+    {
+      "key": "csf_2_0_0",
+      "url": "https://csrc.nist.gov/extensions/nudp/services/json/nudp/framework/version/csf_2_0_0/export/json?element=all",
+      "pin": "",
+      "filename": "cprt_csf_2_0_0.json",
+      "bytes": 753380,
+      "sha256": "de36759d2f3f70a0f28ab9a95505259e568467923295a13d510a068939773e5a",
+      "fetched_at": "2026-10-28T20:26:20+00:00"
+    },
+    {
+      "key": "fedramp_rules",
+      "url": "https://raw.githubusercontent.com/FedRAMP/rules/a89d78477ddea98dc57eca24f5007794c2b4eeb6/fedramp-consolidated-rules.json",
+      "pin": "a89d78477ddea98dc57eca24f5007794c2b4eeb6",
+      "filename": "fedramp_consolidated_rules.json",
+      "bytes": 586076,
+      "sha256": "fb48d677a85d77fb72735a325de2c1945a1e0ceab1d2e655292fe9ebe3e4e0b4",
+      "fetched_at": "2026-10-28T20:26:21+00:00"
+    },
+    {
+      "key": "sp800_53_5_1_1",
+      "url": "https://csrc.nist.gov/extensions/nudp/services/json/nudp/framework/version/sp_800_53_5_1_1/export/json?element=all",
+      "pin": "",
+      "filename": "cprt_sp800_53_5_1_1.json",
+      "bytes": 13990026,
+      "sha256": "195ee6a34a7a7f24813cdf54f243bc1094eba4de19ca200a0fce8c07096959bd",
+      "fetched_at": "2026-10-28T20:26:20+00:00"
+    },
+    {
+      "key": "sp800_53_5_2_0",
+      "url": "https://csrc.nist.gov/extensions/nudp/services/json/nudp/framework/version/sp_800_53_5_2_0/export/json?element=all",
+      "pin": "",
+      "filename": "cprt_sp800_53_5_2_0.json",
+      "bytes": 14086095,
+      "sha256": "48d5f7f504ee58fed515e3802eb0e1140f11b158c1c3a393082fce1508128445",
+      "fetched_at": "2026-10-28T20:26:18+00:00"
+    }
+  ]
+}
