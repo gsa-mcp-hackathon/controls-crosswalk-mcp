@@ -1,4 +1,4 @@
-"""Smoke tests for the example MCP server.
+"""Smoke tests for the MCP server.
 
 These verify the server imports and every submodule registers without error.
 Add functional tests for your own tools as you build them.
@@ -51,8 +51,7 @@ def test_routes_register_without_error():
 
 
 @pytest.mark.asyncio
-async def test_example_tool_is_discoverable():
-    """The example tool should be registered and discoverable via the MCP API."""
+async def test_tools_are_discoverable():
     tools = await mcp.list_tools()
     tool_names = {t.name for t in tools}
-    assert "example_search_datasets" in tool_names
+    assert {"controls_get_control", "controls_data_status"} <= tool_names

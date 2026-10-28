@@ -1,0 +1,135 @@
+"""controls_get_control: one SP 800-53 control or enhancement, in full."""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from pydantic import Field
+
+from crosswalk_mcp.models import Release, Section
+from crosswalk_mcp.tools.common import (
+    cprt_citation,
+    get_store,
+    release_provenance,
+    resolve_control_id,
+    resolve_release,
+)
+
+# Which result keys each optional section controls. Everything else in the
+# record (id, title, family, withdrawn, baselines) is always returned.
+SECTION_KEYS: dict[Section, tuple[str, ...]] = {
+    Section.STATEMENT: ("statement", "statement_text"),
+    Section.DISCUSSION: ("discussion",),
+    Section.PARAMETERS: ("parameters",),
+    Section.OBJECTIVES: ("objectives",),
+    Section.ASSESSMENT_METHODS: ("assessment_methods",),
+    Section.REFERENCES: ("references",),
+    Section.RELATIONS: ("related", "incorporated_into", "moved_to"),
+    Section.ENHANCEMENTS: ("enhancements",),
+}
+
+
+def register(mcp: FastMCP) -> None:
+    @mcp.tool(
+        name="controls_get_control",
+        annotations={
+            "title": "Get an SP 800-53 control",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        },
+    )
+    def controls_get_control(
+        control_id: Annotated[
+            str,
+            Field(
+                description=(
+                    "Control or enhancement id in any common spelling: "
+                    "AC-2, AC-2(3), AC-02(03), or ac-2.3."
+                )
+            ),
+        ],
+        release: Annotated[
+            Release | None,
+            Field(
+                description=(
+                    "SP 800-53 release to read. Defaults to the newest, 5.2.0. "
+                    "Use 5.1.1 to see the text before the 2025 update."
+                )
+            ),
+        ] = None,
+        sections: Annotated[
+            list[Section] | None,
+            Field(
+                description=(
+                    "Limit the record to these sections to save space. "
+                    "Unset returns everything."
+                )
+            ),
+        ] = None,
+    ) -> dict:
+        """Return the published text and structure of one SP 800-53 control.
+
+        The record includes the control statement as a tree, the discussion,
+        organization-defined parameters, SP 800-53A assessment objectives
+        and methods, references, related controls, enhancements, baseline
+        flags, and withdrawal details. Text is exactly as NIST publishes it
+        in CPRT; this tool never judges whether a requirement is met.
+
+        Data is a fixed snapshot. The `provenance` block names the snapshot
+        hash, the source file, and a citation URL on csrc.nist.gov.
+        """
+        store = get_store()
+        wanted = resolve_control_id(control_id)
+        release_key = resolve_release(release)
+        with store.lock:
+            record = store.get_control(wanted, release_key)
+            if record is None:
+                raise ToolError(_not_found_message(store, wanted, release_key))
+
+        if sections:
+            keep = {key for section in sections for key in SECTION_KEYS[section]}
+            drop = {key for keys in SECTION_KEYS.values() for key in keys} - keep
+            for key in drop:
+                record.pop(key, None)
+
+        notes = []
+        if record["withdrawn"]:
+            notes.append(
+                f"{wanted} is withdrawn in release {release_key}: "
+                f"{record['withdraw_reason']}."
+            )
+        return {
+            "control": record,
+            "notes": notes,
+            "provenance": {
+                **release_provenance(store, release_key),
+                "release": release_key,
+                "citation": cprt_citation(
+                    store, release_key, record["cprt_id"], record["title"]
+                ),
+            },
+        }
+
+
+def _not_found_message(store, control_id: str, release: str) -> str:
+    """Say where else the id exists, so the caller can retry sensibly."""
+    elsewhere = [
+        r["release"]
+        for r in store.releases()
+        if r["release"] != release and store.get_control(control_id, r["release"])
+    ]
+    if elsewhere:
+        return (
+            f"{control_id} is not in SP 800-53 release {release}, but it is in "
+            f"release {', '.join(elsewhere)}. Call again with release set to one "
+            "of those."
+        )
+    return (
+        f"{control_id} is not in SP 800-53 release {release} or any other release "
+        "this server holds. Check the family letters and number, or use "
+        "controls_search to find the control by keyword."
+    )

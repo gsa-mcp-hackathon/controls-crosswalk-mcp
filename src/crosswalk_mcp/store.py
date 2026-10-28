@@ -17,6 +17,7 @@ import argparse
 import json
 import sqlite3
 import sys
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -289,6 +290,9 @@ class Store:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
         self.conn.row_factory = sqlite3.Row
+        # Tools may run on worker threads. One connection shared under a
+        # lock is plenty for a read only store of this size.
+        self.lock = threading.Lock()
 
     def close(self) -> None:
         self.conn.close()
@@ -444,7 +448,9 @@ def open_store(path: Path | None = None) -> Store:
         )
     # mode=ro makes the connection refuse writes at the SQLite level.
     # https://www.sqlite.org/uri.html
-    conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+    conn = sqlite3.connect(
+        f"{path.resolve().as_uri()}?mode=ro", uri=True, check_same_thread=False
+    )
     store = Store(conn)
     version = store.meta().get("schema_version")
     if version != str(SCHEMA_VERSION):

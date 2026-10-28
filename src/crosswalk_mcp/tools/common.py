@@ -1,0 +1,107 @@
+"""Shared pieces for the tools: store access, provenance, and errors.
+
+Every tool result carries a `provenance` block built here, so a reader can
+trace an answer to the exact source bytes and to the page NIST publishes.
+"""
+
+from __future__ import annotations
+
+import threading
+from pathlib import Path
+
+from fastmcp.exceptions import ToolError
+
+from crosswalk_mcp.ids import InvalidIdentifier, normalize_control_id
+from crosswalk_mcp.models import LATEST_RELEASE, Release
+from crosswalk_mcp.store import Store, StoreError, open_store
+
+# The CPRT catalog page for one element of a framework version.
+# https://csrc.nist.gov/projects/cprt
+CPRT_ELEMENT_URL = (
+    "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/"
+    "{doc}/home?element={element}"
+)
+
+_store: Store | None = None
+_store_path: Path | None = None
+_store_lock = threading.Lock()
+
+
+def configure_store(path: Path | None) -> None:
+    """Point the tools at a store file. Tests use this; the server uses the
+    default path from settings."""
+    global _store, _store_path
+    with _store_lock:
+        if _store is not None:
+            _store.close()
+        _store = None
+        _store_path = path
+
+
+def get_store() -> Store:
+    """The shared read only store, opened on first use."""
+    global _store
+    with _store_lock:
+        if _store is None:
+            try:
+                _store = open_store(_store_path)
+            except StoreError as exc:
+                raise ToolError(
+                    f"The data store is not available: {exc} "
+                    "The operator must build it before this server can answer."
+                ) from None
+        return _store
+
+
+def resolve_release(release: Release | None) -> str:
+    return (release or LATEST_RELEASE).value
+
+
+def resolve_control_id(raw: str) -> str:
+    """Canonical control id, or a ToolError that shows the accepted spellings."""
+    try:
+        return normalize_control_id(raw)
+    except InvalidIdentifier:
+        raise ToolError(
+            f"'{raw}' is not an SP 800-53 control id. Use the family letters, "
+            "a number, and an optional enhancement, for example AC-2, AC-2(3), "
+            "ac-02.03, or AC-02(03). Use controls_search to find a control by "
+            "keyword."
+        ) from None
+
+
+def snapshot_provenance(store: Store) -> dict:
+    """The part of provenance that is the same for every result."""
+    meta = store.meta()
+    return {
+        "snapshot_hash": meta["manifest_hash"],
+        "snapshot_as_of": meta["manifest_written_at"],
+        "store_built_at": meta["built_at"],
+    }
+
+
+def release_provenance(store: Store, release: str) -> dict:
+    """Provenance for one 800-53 release: snapshot plus the source file."""
+    meta = store.meta()
+    release_row = next(r for r in store.releases() if r["release"] == release)
+    source = next(s for s in meta["sources"] if s["key"] == release_row["source_key"])
+    return {
+        **snapshot_provenance(store),
+        "source": {
+            "key": source["key"],
+            "name": f"{release_row['name']} (SP 800-53 release {release})",
+            "publisher": "NIST Cybersecurity and Privacy Reference Tool (CPRT)",
+            "url": source["url"],
+            "sha256": source["sha256"],
+        },
+    }
+
+
+def cprt_citation(store: Store, release: str, cprt_id: str, title: str) -> dict:
+    release_row = next(r for r in store.releases() if r["release"] == release)
+    return {
+        "text": f"NIST SP 800-53 Rev. 5 release {release}, {cprt_id} {title}",
+        "url": CPRT_ELEMENT_URL.format(
+            doc=release_row["doc_identifier"], element=cprt_id
+        ),
+    }
