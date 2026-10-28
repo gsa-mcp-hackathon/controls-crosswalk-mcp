@@ -14,7 +14,7 @@ from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from example_server import __version__
+from crosswalk_mcp import __version__
 
 
 def register_routes(mcp: FastMCP) -> None:
@@ -22,7 +22,7 @@ def register_routes(mcp: FastMCP) -> None:
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health_check(request: Request) -> JSONResponse:
-        return JSONResponse({"status": "healthy", "service": "example-mcp-server"})
+        return JSONResponse({"status": "healthy", "service": "controls-crosswalk-mcp"})
 
     @mcp.custom_route("/version", methods=["GET"])
     async def version(request: Request) -> JSONResponse:

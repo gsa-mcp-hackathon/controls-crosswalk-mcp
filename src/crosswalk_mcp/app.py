@@ -21,19 +21,24 @@ import os
 
 from fastmcp import FastMCP
 
-from example_server.config import settings
-from example_server.prompts import register_prompts
-from example_server.resources import register_resources
-from example_server.routes import register_routes
-from example_server.tools import register_tools
+from crosswalk_mcp.config import settings
+from crosswalk_mcp.prompts import register_prompts
+from crosswalk_mcp.resources import register_resources
+from crosswalk_mcp.routes import register_routes
+from crosswalk_mcp.tools import register_tools
 
 # The server name is what MCP clients display. Rename it to your service.
 mcp = FastMCP(
-    name="Example MCP Server",
+    name="Controls Crosswalk MCP",
     instructions=(
-        "Starter MCP server for the GSA MCP hackathon. "
-        "Replace this description, the tools, and the package name with your "
-        "own service. See the repo README to get started."
+        "Read-only lookup over NIST SP 800-53 (releases 5.1.1 and 5.2.0), "
+        "SP 800-53B baselines, CSF 2.0, and FedRAMP Key Security Indicators. "
+        "Use it to explain control changes between releases, trace published "
+        "framework relationships, and retrieve assessment guidance. Every "
+        "result carries its source, version, and citation. Relationship "
+        "results are labeled direct (published) or derived (composed). The "
+        "server never states that a requirement is satisfied. Unofficial; not "
+        "affiliated with or endorsed by NIST."
     ),
 )
 
