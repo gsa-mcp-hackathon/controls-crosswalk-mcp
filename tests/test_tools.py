@@ -21,7 +21,13 @@ async def call(name: str, **args) -> dict:
 async def test_tools_are_listed():
     async with Client(mcp) as client:
         names = {t.name for t in await client.list_tools()}
-    assert names == {"controls_get_control", "controls_data_status"}
+    assert names == {
+        "controls_get_control",
+        "controls_search",
+        "controls_get_baseline",
+        "controls_baseline_membership",
+        "controls_data_status",
+    }
 
 
 async def test_get_control_returns_record_and_provenance(tiny_store):
@@ -104,3 +110,95 @@ async def test_data_status_resource_matches_tool(tiny_store):
     payload = json.loads(contents[0].text)
     tool_result = await call("controls_data_status")
     assert payload["provenance"] == tool_result["provenance"]
+
+
+async def test_search_ranks_and_snippets(tiny_store):
+    result = await call("controls_search", query="account managers")
+    assert result["match_mode"] == "all_words"
+    assert result["total"] == 1
+    hit = result["results"][0]
+    assert hit["id"] == "AC-2"
+    assert "[account] [managers]" in hit["snippet"].lower()
+    assert hit["baselines"] == ["low", "moderate", "high"]
+    assert hit["score"] > 0
+    assert result["provenance"]["release"] == "5.2.0"
+
+
+async def test_search_falls_back_to_any_word(tiny_store):
+    result = await call("controls_search", query="audit zebra")
+    assert result["match_mode"] == "any_word"
+    assert [h["id"] for h in result["results"]] == ["AU-6"]
+    assert result["notes"] and "at least one word" in result["notes"][0]
+
+
+async def test_search_filters_and_withdrawn(tiny_store):
+    assert (await call("controls_search", query="withdrawn"))["total"] == 0
+    result = await call("controls_search", query="withdrawn", include_withdrawn=True)
+    assert {h["id"] for h in result["results"]} == {"AC-2(10)", "AC-13"}
+    result = await call("controls_search", query="audit", baseline="privacy")
+    assert [h["id"] for h in result["results"]] == ["AU-6"]
+    result = await call("controls_search", query="audit", family="ac")
+    assert result["total"] == 0 and result["filters"]["family"] == "AC"
+    with pytest.raises(ToolError, match="not an SP 800-53 family"):
+        await call("controls_search", query="audit", family="ZZ")
+
+
+async def test_search_rejects_operator_only_query(tiny_store):
+    with pytest.raises(ToolError, match="no searchable words"):
+        await call("controls_search", query='" * "')
+
+
+async def test_search_pagination(tiny_store):
+    result = await call(
+        "controls_search",
+        query="withdrawn",
+        include_withdrawn=True,
+        pagination={"limit": 1, "offset": 0},
+    )
+    assert result["count"] == 1 and result["total"] == 2
+    assert result["has_more"] is True and result["next_offset"] == 1
+
+
+async def test_get_baseline(tiny_store):
+    result = await call("controls_get_baseline", baseline="moderate")
+    assert result["baseline"]["member_count"] == 2
+    assert result["baseline"]["catalog_version"] == "9.9.9"
+    assert [m["id"] for m in result["members"]] == ["AC-2", "AU-6"]
+    assert result["members"][0]["oscal_id"] == "ac-2"
+    assert result["relationship"] == "direct"
+    assert result["notes"] == []
+    assert result["provenance"]["source"]["key"] == "baseline_moderate"
+    assert len(result["provenance"]["source"]["pin"]) == 40
+
+    result = await call("controls_get_baseline", baseline="moderate", family="AU")
+    assert [m["id"] for m in result["members"]] == ["AU-6"]
+
+    result = await call("controls_get_baseline", baseline="high")
+    assert "different release" in result["notes"][0]
+
+
+async def test_baseline_membership(tiny_store):
+    result = await call(
+        "controls_baseline_membership", control_ids=["ac-02", "AC-13", "AC-99"]
+    )
+    by_id = {c["id"]: c for c in result["controls"]}
+    assert by_id["AC-2"]["baselines"] == ["low", "moderate", "high"]
+    assert by_id["AC-2"]["title"] == "ACCOUNT MANAGEMENT"
+    assert by_id["AC-13"] == {
+        "id": "AC-13",
+        "found": True,
+        "title": "SUPERVISION AND REVIEW",
+        "withdrawn": True,
+        "baselines": [],
+    }
+    assert by_id["AC-99"]["found"] is False
+    assert "AC-99" in result["notes"][0]
+    assert result["relationship"] == "direct"
+    assert [s["key"] for s in result["provenance"]["sources"]] == [
+        "baseline_low",
+        "baseline_moderate",
+        "baseline_high",
+        "baseline_privacy",
+    ]
+    with pytest.raises(ToolError, match="more than once"):
+        await call("controls_baseline_membership", control_ids=["AC-2", "ac-02"])

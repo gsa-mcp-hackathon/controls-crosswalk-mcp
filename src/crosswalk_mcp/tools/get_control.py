@@ -107,7 +107,6 @@ def register(mcp: FastMCP) -> None:
             "notes": notes,
             "provenance": {
                 **release_provenance(store, release_key),
-                "release": release_key,
                 "citation": cprt_citation(
                     store, release_key, record["cprt_id"], record["title"]
                 ),

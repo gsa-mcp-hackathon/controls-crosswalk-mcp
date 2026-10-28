@@ -24,17 +24,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from crosswalk_mcp.config import settings
-from crosswalk_mcp.loaders import sp800_53
+from crosswalk_mcp.loaders import oscal_baselines, sp800_53
 from crosswalk_mcp.snapshot import SnapshotError, raw_dir, read_manifest, verify
 
 DB_NAME = "crosswalk.sqlite"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Which raw source feeds which 800-53 release. The newest release is first,
 # which makes it the default for lookups.
 SP800_53_RELEASES: tuple[tuple[str, str], ...] = (
     ("5.2.0", "sp800_53_5_2_0"),
     ("5.1.1", "sp800_53_5_1_1"),
+)
+
+# The four SP 800-53B baselines and the raw source that holds each.
+BASELINES: tuple[tuple[str, str], ...] = (
+    ("low", "baseline_low"),
+    ("moderate", "baseline_moderate"),
+    ("high", "baseline_high"),
+    ("privacy", "baseline_privacy"),
 )
 
 SCHEMA = """
@@ -153,6 +161,28 @@ CREATE TABLE cprt_baselines (
     PRIMARY KEY (release, control_id, baseline)
 );
 
+-- SP 800-53B baselines from the OSCAL resolved catalogs.
+CREATE TABLE baselines (
+    baseline TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    version TEXT NOT NULL,
+    oscal_version TEXT NOT NULL,
+    last_modified TEXT NOT NULL,
+    catalog_uuid TEXT NOT NULL,
+    source_key TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL
+);
+
+CREATE TABLE baseline_members (
+    baseline TEXT NOT NULL,
+    control_id TEXT NOT NULL,
+    oscal_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (baseline, control_id)
+);
+CREATE INDEX baseline_members_control ON baseline_members (control_id);
+
 CREATE VIRTUAL TABLE controls_fts USING fts5(
     release UNINDEXED,
     id UNINDEXED,
@@ -245,6 +275,14 @@ def build(source_dir: Path | None = None, dest: Path | None = None) -> BuildRepo
                 ],
             )
 
+        for baseline, source_key in BASELINES:
+            entry = by_key[source_key]
+            with (source_dir / entry["filename"]).open("rb") as handle:
+                payload = json.load(handle)
+            rows = oscal_baselines.load(payload, baseline, source_key, entry["sha256"])
+            _insert(conn, "baselines", [rows.baseline])
+            _insert(conn, "baseline_members", rows.members)
+
         meta = {
             "schema_version": str(SCHEMA_VERSION),
             "manifest_hash": manifest["manifest_hash"],
@@ -280,6 +318,8 @@ def _counts(conn: sqlite3.Connection) -> dict[str, int]:
         "control_references",
         "control_relations",
         "cprt_baselines",
+        "baselines",
+        "baseline_members",
     ]
     return {t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in tables}
 
@@ -419,6 +459,120 @@ class Store:
         ]
         return result
 
+    def baselines(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT b.*, (SELECT count(*) FROM baseline_members m "
+            " WHERE m.baseline = b.baseline) AS member_count FROM baselines b"
+        ).fetchall()
+        order = [name for name, _ in BASELINES]
+        return sorted((dict(r) for r in rows), key=lambda r: order.index(r["baseline"]))
+
+    def baseline_members(self, baseline: str, family: str | None = None) -> list[dict]:
+        sql = (
+            "SELECT control_id AS id, oscal_id, title FROM baseline_members "
+            "WHERE baseline = ?"
+        )
+        params: list = [baseline]
+        if family:
+            # Family is the letters before the dash, which the canonical id
+            # always starts with.
+            sql += " AND control_id LIKE ?"
+            params.append(f"{family}-%")
+        sql += " ORDER BY position"
+        return [dict(r) for r in self.conn.execute(sql, params).fetchall()]
+
+    def membership(self, control_ids: list[str]) -> dict[str, list[str]]:
+        """Which baselines list each of the given controls."""
+        result: dict[str, list[str]] = {control_id: [] for control_id in control_ids}
+        if not control_ids:
+            return result
+        marks = ", ".join("?" for _ in control_ids)
+        rows = self.conn.execute(
+            f"SELECT control_id, baseline FROM baseline_members "
+            f"WHERE control_id IN ({marks})",
+            control_ids,
+        ).fetchall()
+        order = [name for name, _ in BASELINES]
+        for row in rows:
+            result[row["control_id"]].append(row["baseline"])
+        for baselines in result.values():
+            baselines.sort(key=order.index)
+        return result
+
+    def search(
+        self,
+        query: str,
+        release: str,
+        family: str | None = None,
+        baseline: str | None = None,
+        include_withdrawn: bool = False,
+        limit: int = 20,
+        offset: int = 0,
+        any_word: bool = False,
+    ) -> tuple[int, list[dict]]:
+        """Full text search over titles, statements, and discussion.
+
+        Returns the total number of matches and one page of them, best
+        match first. Title matches weigh more than statement matches, which
+        weigh more than discussion matches. By default every word must
+        match; any_word relaxes that to at least one word.
+        """
+        match = fts_query(query, any_word=any_word)
+        where = ["controls_fts MATCH ?", "controls_fts.release = ?"]
+        params: list = [match, release]
+        if family:
+            where.append("c.family = ?")
+            params.append(family)
+        if not include_withdrawn:
+            where.append("c.withdrawn = 0")
+        if baseline:
+            where.append(
+                "EXISTS (SELECT 1 FROM baseline_members m "
+                "WHERE m.baseline = ? AND m.control_id = c.id)"
+            )
+            params.append(baseline)
+        joined = (
+            "FROM controls_fts JOIN controls c "
+            "ON c.release = controls_fts.release AND c.id = controls_fts.id "
+            "WHERE " + " AND ".join(where)
+        )
+        total = self.conn.execute(f"SELECT count(*) {joined}", params).fetchone()[0]
+        rows = self.conn.execute(
+            "SELECT c.id, c.title, c.family, c.parent_id, c.withdrawn, "
+            "snippet(controls_fts, -1, '[', ']', ' ... ', 24) AS snippet, "
+            "bm25(controls_fts, 0, 0, 10.0, 3.0, 1.0) AS score "
+            f"{joined} ORDER BY score, c.sort_key LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        ).fetchall()
+        results = []
+        for row in rows:
+            item = dict(row)
+            item["withdrawn"] = bool(item["withdrawn"])
+            item["score"] = round(-item["score"], 3)
+            results.append(item)
+        return total, results
+
+
+def fts_query(text: str, any_word: bool = False) -> str:
+    """Turn free text into a safe FTS5 query.
+
+    Every word becomes a quoted phrase so FTS5 operators and punctuation in
+    the input cannot change the query's meaning. Words are ANDed unless
+    any_word is set, which ORs them. A trailing asterisk keeps its prefix
+    meaning, so "authent*" matches authenticate.
+    https://www.sqlite.org/fts5.html#full_text_query_syntax
+    """
+    terms = []
+    for word in text.split():
+        prefix = word.endswith("*")
+        word = word.strip('*"').replace('"', '""')
+        if not word:
+            continue
+        terms.append(f'"{word}"*' if prefix else f'"{word}"')
+    if not terms:
+        raise ValueError("query has no searchable words")
+    return " OR ".join(terms) if any_word else " ".join(terms)
+
 
 def _statement_tree(rows: list[sqlite3.Row]) -> list[dict]:
     """Turn flat statement rows into a nested list, keeping file order."""
@@ -494,6 +648,11 @@ def main(argv: list[str] | None = None) -> int:
                     (release["release"],),
                 ).fetchone()[0]
                 print(f"  800-53 {release['release']}: {count} controls")
+            for baseline in store.baselines():
+                print(
+                    f"  800-53B {baseline['baseline']}: "
+                    f"{baseline['member_count']} controls"
+                )
             store.close()
     except (StoreError, SnapshotError) as exc:
         print(f"error: {exc}", file=sys.stderr)

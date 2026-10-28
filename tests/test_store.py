@@ -40,7 +40,7 @@ def test_natural_key_orders_letters_and_numbers():
 def test_loader_builds_control_rows():
     rows = sp800_53.load(tiny_export(), "9.9.9", "test_key", "abc")
     assert rows.release["doc_identifier"] == DOC
-    assert [f["id"] for f in rows.families] == ["AC"]
+    assert [f["id"] for f in rows.families] == ["AC", "AU"]
 
     by_id = {c["id"]: c for c in rows.controls}
     assert set(by_id) == {"AC-2", "AC-2(10)", "AC-13", "AU-6"}
@@ -127,6 +127,8 @@ def test_build_and_open_store(tmp_path: Path):
     report = store.build(raw, out)
     assert report.path == out
     assert report.counts["controls"] == 8  # four controls in each of two releases
+    assert report.counts["baselines"] == 4
+    assert report.counts["baseline_members"] == 6
     assert not out.with_suffix(".sqlite.part").exists()
 
     s = store.open_store(out)
@@ -164,10 +166,45 @@ def test_build_and_open_store(tmp_path: Path):
     ).fetchall()
     assert [h["id"] for h in hits] == ["AC-2"]
 
+    assert [b["baseline"] for b in s.baselines()] == [
+        "low",
+        "moderate",
+        "high",
+        "privacy",
+    ]
+    assert s.baselines()[1]["member_count"] == 2
+    assert [m["id"] for m in s.baseline_members("moderate")] == ["AC-2", "AU-6"]
+    assert [m["id"] for m in s.baseline_members("moderate", family="AU")] == ["AU-6"]
+    assert s.membership(["AC-2", "AC-13"]) == {
+        "AC-2": ["low", "moderate", "high"],
+        "AC-13": [],
+    }
+    total, hits = s.search("account", "5.2.0")
+    assert total == 1 and hits[0]["id"] == "AC-2"
+    assert "[account]" in hits[0]["snippet"].lower()
+
     # The connection is read only.
     with pytest.raises(sqlite3.OperationalError):
         s.conn.execute("DELETE FROM controls")
     s.close()
+
+
+@pytest.mark.parametrize(
+    ("text", "any_word", "expected"),
+    [
+        ("disable accounts", False, '"disable" "accounts"'),
+        ("disable accounts", True, '"disable" OR "accounts"'),
+        ('a "quoted" (x) OR authent*', False, '"a" "quoted" "(x)" "OR" "authent"*'),
+        ('say ""hi""', False, '"say" "hi"'),
+    ],
+)
+def test_fts_query_quotes_every_word(text, any_word, expected):
+    assert store.fts_query(text, any_word=any_word) == expected
+
+
+def test_fts_query_rejects_empty():
+    with pytest.raises(ValueError):
+        store.fts_query('" * "')
 
 
 def test_build_refuses_unverified_snapshot(tmp_path: Path):
@@ -211,4 +248,9 @@ def test_real_store_has_known_facts():
     assert s.get_control("SA-24", "5.1.1") is None
     ca34 = s.get_control("CA-3(4)", "5.2.0")
     assert ca34["withdrawn"] and ca34["moved_to"] == ["SC-7(28)"]
+    counts = {b["baseline"]: b["member_count"] for b in s.baselines()}
+    assert counts == {"low": 149, "moderate": 287, "high": 370, "privacy": 96}
+    assert s.membership(["AC-2(3)"]) == {"AC-2(3)": ["moderate", "high"]}
+    total, hits = s.search("cyber resiliency", "5.2.0")
+    assert hits[0]["id"] == "SA-24"
     s.close()

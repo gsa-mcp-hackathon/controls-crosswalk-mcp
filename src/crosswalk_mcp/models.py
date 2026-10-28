@@ -21,6 +21,15 @@ class Release(str, Enum):
 LATEST_RELEASE = Release.R5_2_0
 
 
+class Baseline(str, Enum):
+    """SP 800-53B baselines, as published in the OSCAL resolved catalogs."""
+
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
+    PRIVACY = "privacy"
+
+
 class Section(str, Enum):
     """Optional parts of a control record. Leave unset to get all of them."""
 

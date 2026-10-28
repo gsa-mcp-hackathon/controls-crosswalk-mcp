@@ -54,4 +54,10 @@ def test_routes_register_without_error():
 async def test_tools_are_discoverable():
     tools = await mcp.list_tools()
     tool_names = {t.name for t in tools}
-    assert {"controls_get_control", "controls_data_status"} <= tool_names
+    assert {
+        "controls_get_control",
+        "controls_search",
+        "controls_get_baseline",
+        "controls_baseline_membership",
+        "controls_data_status",
+    } <= tool_names

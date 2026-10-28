@@ -13,6 +13,7 @@ from fastmcp.exceptions import ToolError
 
 from crosswalk_mcp.ids import InvalidIdentifier, normalize_control_id
 from crosswalk_mcp.models import LATEST_RELEASE, Release
+from crosswalk_mcp.sources import SOURCES_BY_KEY
 from crosswalk_mcp.store import Store, StoreError, open_store
 
 # The CPRT catalog page for one element of a framework version.
@@ -80,21 +81,46 @@ def snapshot_provenance(store: Store) -> dict:
     }
 
 
+def source_record(store: Store, source_key: str) -> dict:
+    """One source as the status tool describes it, with its file hash."""
+    recorded = next(s for s in store.meta()["sources"] if s["key"] == source_key)
+    source = SOURCES_BY_KEY[source_key]
+    return {
+        "key": source_key,
+        "description": source.description,
+        "publisher": source.publisher,
+        "url": source.url,
+        "pin": source.pin or None,
+        "sha256": recorded["sha256"],
+    }
+
+
 def release_provenance(store: Store, release: str) -> dict:
     """Provenance for one 800-53 release: snapshot plus the source file."""
-    meta = store.meta()
     release_row = next(r for r in store.releases() if r["release"] == release)
-    source = next(s for s in meta["sources"] if s["key"] == release_row["source_key"])
     return {
         **snapshot_provenance(store),
-        "source": {
-            "key": source["key"],
-            "name": f"{release_row['name']} (SP 800-53 release {release})",
-            "publisher": "NIST Cybersecurity and Privacy Reference Tool (CPRT)",
-            "url": source["url"],
-            "sha256": source["sha256"],
-        },
+        "release": release,
+        "source": source_record(store, release_row["source_key"]),
     }
+
+
+def resolve_family(store: Store, family: str | None, release: str) -> str | None:
+    """Upper case two letter family id, or a ToolError listing the families."""
+    if family is None:
+        return None
+    wanted = family.strip().upper()
+    with store.lock:
+        rows = store.conn.execute(
+            "SELECT id, title FROM families WHERE release = ? ORDER BY id", (release,)
+        ).fetchall()
+    known = {row["id"]: row["title"] for row in rows}
+    if wanted not in known:
+        listing = ", ".join(f"{k} ({v.title()})" for k, v in known.items())
+        raise ToolError(
+            f"'{family}' is not an SP 800-53 family. Use one of: {listing}."
+        )
+    return wanted
 
 
 def cprt_citation(store: Store, release: str, cprt_id: str, title: str) -> dict:

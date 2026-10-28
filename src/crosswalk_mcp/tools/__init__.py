@@ -7,12 +7,14 @@ Each tool module exposes a `register(mcp)` function that attaches its
 
 from __future__ import annotations
 
-from crosswalk_mcp.tools import data_status, get_control
+from crosswalk_mcp.tools import baselines, data_status, get_control, search
 
 
 def register_tools(mcp) -> None:
     """Register all tools with the MCP server."""
     get_control.register(mcp)
+    search.register(mcp)
+    baselines.register(mcp)
     data_status.register(mcp)
 
 

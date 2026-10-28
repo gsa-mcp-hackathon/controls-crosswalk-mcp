@@ -42,6 +42,7 @@ def tiny_export() -> dict:
     withdrawn enhancement AC-2(10), and a withdrawn control AC-13."""
     elements = [
         element("family", "AC", "ACCESS CONTROL"),
+        element("family", "AU", "AUDIT AND ACCOUNTABILITY"),
         element("control", "AC-02", "ACCOUNT MANAGEMENT "),
         element("sort", "S-AC-02", "00001.00002"),
         element("control_statement", "CST-AC-02"),
@@ -87,6 +88,7 @@ def tiny_export() -> dict:
     relationships = [
         edge("AC", "AC-02"),
         edge("AC", "AC-13"),
+        edge("AU", "AU-06"),
         edge("AC-02", "S-AC-02"),
         edge("AC-02", "CST-AC-02"),
         edge("CST-AC-02", "CST-AC-02-b"),
@@ -136,9 +138,44 @@ def tiny_export() -> dict:
     }
 
 
+BASELINE_MEMBERS = {
+    "low": ["ac-2"],
+    "moderate": ["ac-2", "au-6"],
+    "high": ["ac-2", "au-6"],
+    "privacy": ["au-6"],
+}
+
+
+def tiny_baseline(level: str) -> dict:
+    """An OSCAL resolved catalog with the members in BASELINE_MEMBERS."""
+    titles = {"ac-2": "Account Management", "au-6": "Audit Record Review"}
+    groups: dict[str, dict] = {}
+    for oscal_id in BASELINE_MEMBERS[level]:
+        family = oscal_id.split("-")[0]
+        group = groups.setdefault(
+            family, {"id": family, "title": family, "controls": []}
+        )
+        group["controls"].append({"id": oscal_id, "title": titles[oscal_id]})
+    # The real HIGH file has this title mismatch; keep it so tests cover it.
+    named = "5.1.1" if level == "high" else "9.9.9"
+    return {
+        "catalog": {
+            "uuid": f"00000000-0000-0000-0000-0000000000{len(level):02d}",
+            "metadata": {
+                "title": f"Test {named} {level.upper()} baseline",
+                "version": "9.9.9",
+                "oscal-version": "1.2.3",
+                "last-modified": "2026-01-01T00:00:00Z",
+            },
+            "groups": list(groups.values()),
+        }
+    }
+
+
 def write_raw_dir(tmp_path: Path) -> Path:
-    """A raw dir whose two 800-53 files are the tiny export and whose other
-    sources are empty JSON objects, with a manifest that verifies."""
+    """A raw dir whose 800-53 files are the tiny export, whose baseline files
+    are tiny OSCAL catalogs, and whose other sources are empty JSON objects,
+    with a manifest that verifies."""
     raw = tmp_path / "raw"
     raw.mkdir()
     entries = []
@@ -146,6 +183,9 @@ def write_raw_dir(tmp_path: Path) -> Path:
         path = raw / source.filename
         if source.key.startswith("sp800_53"):
             path.write_text(json.dumps(tiny_export()), encoding="utf-8")
+        elif source.key.startswith("baseline_"):
+            level = source.key.removeprefix("baseline_")
+            path.write_text(json.dumps(tiny_baseline(level)), encoding="utf-8")
         else:
             path.write_text("{}", encoding="utf-8")
         entries.append(
