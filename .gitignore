@@ -49,3 +49,7 @@ htmlcov/
 eval/databricks/agent_server/agent.py
 eval/databricks/agent_server/utils.py 
 
+
+# Built SQLite store. Rebuild with: uv run python -m crosswalk_mcp.store build
+data/*.sqlite
+data/*.sqlite.part
