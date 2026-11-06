@@ -129,6 +129,8 @@ def test_build_and_open_store(tmp_path: Path):
     assert report.counts["controls"] == 9  # four in 5.1.1, five in 5.2.0
     assert report.counts["baselines"] == 4
     assert report.counts["baseline_members"] == 6
+    assert report.counts["csf_elements"] == 7
+    assert report.counts["csf_references"] == 3
     assert not out.with_suffix(".sqlite.part").exists()
 
     s = store.open_store(out)
@@ -281,4 +283,14 @@ def test_real_store_has_known_facts():
     ]
     assert changed["SA-4"] == ["discussion"]
     assert "AC-2" not in changed
+
+    csf_counts = s.csf_counts()
+    assert csf_counts["active"] == {"function": 6, "category": 22, "subcategory": 106}
+    assert csf_counts["legacy"] == {"category": 12, "subcategory": 79}
+    pr_aa_01 = s.get_csf_element("PR.AA-01")
+    assert pr_aa_01["references"] == [
+        {"target_doc": "SP_800_53_5_1_1", "target_id": "IA"}
+    ]
+    assert s.release_for_document("SP_800_53_5_1_1") == "5.1.1"
+    assert s.get_csf_element("DE.DP-05")["incorporated_into"] == ["ID.IM", "ID.IM-03"]
     s.close()

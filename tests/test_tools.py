@@ -27,6 +27,7 @@ async def test_tools_are_listed():
         "controls_get_baseline",
         "controls_baseline_membership",
         "controls_diff_releases",
+        "controls_get_csf_element",
         "controls_data_status",
     }
 
@@ -93,8 +94,16 @@ async def test_missing_store_is_reported(tmp_path):
 
 async def test_data_status(tiny_store):
     result = await call("controls_data_status")
-    assert [d["release"] for d in result["datasets"]] == ["5.2.0", "5.1.1"]
+    assert [d["release"] for d in result["datasets"]] == ["5.2.0", "5.1.1", "2.0"]
     assert result["datasets"][0]["controls_and_enhancements"] == 5
+    assert result["datasets"][2] == {
+        "dataset": "CSF 2.0",
+        "release": "2.0",
+        "version_as_published": "Version 2.0",
+        "source_key": "csf_2_0_0",
+        "active": {"function": 2, "category": 1, "subcategory": 2},
+        "legacy_identifiers": 2,
+    }
     assert len(result["sources"]) == 8
     pinned = [s for s in result["sources"] if s["pin"]]
     assert all(len(s["pin"]) == 40 for s in pinned)

@@ -7,6 +7,9 @@ withdrawn enhancement AC-2(10), a withdrawn control AC-13, and AU-6.
 The export comes in two flavors so the release comparison has something to
 find. The newer flavor rewords AC-2 item a, renames its parameter, adds a
 discussion paragraph, and adds a control AC-25 that AC-2 relates to.
+
+A second tiny export, shaped like the CPRT CSF 2.0 file, holds two
+functions with one active and one retired category; see tiny_csf_export.
 """
 
 from __future__ import annotations
@@ -162,6 +165,94 @@ def tiny_export(newer: bool = False) -> dict:
     }
 
 
+CSF_DOC = "CSF_TEST"
+
+
+def csf_element(element_type: str, ident: str, title: str = "", text: str = "") -> dict:
+    return {**element(element_type, ident, title, text), "doc_identifier": CSF_DOC}
+
+
+def csf_edge(src: str, dst: str, kind: str = "projection", dest_doc: str = CSF_DOC):
+    return {
+        **edge(src, dst, kind),
+        "source_doc_identifier": CSF_DOC,
+        "dest_doc_identifier": dest_doc,
+        "provenance_doc_identifier": CSF_DOC,
+    }
+
+
+def tiny_csf_export() -> dict:
+    """Two functions. GV holds category GV.OC with GV.OC-01 (two examples,
+    a first party tag, references to the AC and AU families of the test
+    800-53 document plus one family, PM, the test catalog lacks) and
+    GV.OC-02 (no references). ID holds the retired CSF 1.1 category ID.BE,
+    incorporated into GV.OC, with retired subcategory ID.BE-02, incorporated
+    into GV.OC-01."""
+    elements = [
+        csf_element("function", "GV", "GOVERN", "Strategy is established."),
+        csf_element("sort", "S-GV", "00001"),
+        csf_element("category", "GV.OC", "Organizational Context", "Context."),
+        csf_element("sort", "S-GV.OC", "00001.00001"),
+        csf_element("subcategory", "GV.OC-01", "", "The mission is  understood"),
+        csf_element("sort", "S-GV.OC-01", "00001.00001.00001"),
+        csf_element("implementation_example", "GV.OC-01.002", "Ex2", "Second."),
+        csf_element("implementation_example", "GV.OC-01.001", "Ex1", "Share it."),
+        csf_element("party", "first", "1st", "1st Party Risk"),
+        csf_element("subcategory", "GV.OC-02", "", "Stakeholders are understood"),
+        csf_element("sort", "S-GV.OC-02", "00001.00001.00002"),
+        csf_element("function", "ID", "IDENTIFY", "Risks are understood."),
+        csf_element("sort", "S-ID", "00002"),
+        csf_element("category", "ID.BE", "Business Environment"),
+        csf_element("sort", "S-ID.BE", "00002.00002"),
+        csf_element("withdraw_reason", "WR-ID.BE", "", "Incorporated into GV.OC"),
+        csf_element("subcategory", "ID.BE-02", "", "Place in infrastructure"),
+        csf_element("sort", "S-ID.BE-02", "00002.00002.00002"),
+        csf_element("withdraw_reason", "WR-ID.BE-02", "", "Incorporated into GV.OC-01"),
+    ]
+    relationships = [
+        csf_edge("GV", "GV.OC"),
+        csf_edge("GV", "S-GV"),
+        csf_edge("GV.OC", "GV.OC-01"),
+        csf_edge("GV.OC", "GV.OC-02"),
+        csf_edge("GV.OC", "S-GV.OC"),
+        csf_edge("GV.OC-01", "S-GV.OC-01"),
+        csf_edge("GV.OC-01", "GV.OC-01.002"),
+        csf_edge("GV.OC-01", "GV.OC-01.001"),
+        csf_edge("GV.OC-01", "first"),
+        csf_edge("GV.OC-01", "AU", "external_reference", DOC),
+        csf_edge("GV.OC-01", "AC", "external_reference", DOC),
+        csf_edge("GV.OC", "PM", "external_reference", DOC),
+        csf_edge("GV.OC-02", "S-GV.OC-02"),
+        csf_edge("ID", "ID.BE"),
+        csf_edge("ID", "S-ID"),
+        csf_edge("ID.BE", "ID.BE-02"),
+        csf_edge("ID.BE", "S-ID.BE"),
+        csf_edge("ID.BE", "WR-ID.BE"),
+        csf_edge("WR-ID.BE", "GV.OC", "incorporated_into"),
+        csf_edge("ID.BE-02", "S-ID.BE-02"),
+        csf_edge("ID.BE-02", "WR-ID.BE-02"),
+        csf_edge("WR-ID.BE-02", "GV.OC-01", "incorporated_into"),
+    ]
+    return {
+        "response": {
+            "requestType": "elements",
+            "elements": {
+                "documents": [
+                    {
+                        "doc_identifier": CSF_DOC,
+                        "name": "Test framework",
+                        "version": "Version  2.0",
+                        "website": "https://example.invalid/csf",
+                    }
+                ],
+                "relationship_types": [],
+                "elements": elements,
+                "relationships": relationships,
+            },
+        }
+    }
+
+
 BASELINE_MEMBERS = {
     "low": ["ac-2"],
     "moderate": ["ac-2", "au-6"],
@@ -211,6 +302,8 @@ def write_raw_dir(tmp_path: Path) -> Path:
         elif source.key.startswith("baseline_"):
             level = source.key.removeprefix("baseline_")
             path.write_text(json.dumps(tiny_baseline(level)), encoding="utf-8")
+        elif source.key == "csf_2_0_0":
+            path.write_text(json.dumps(tiny_csf_export()), encoding="utf-8")
         else:
             path.write_text("{}", encoding="utf-8")
         entries.append(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from crosswalk_mcp.sources import SOURCES
-from crosswalk_mcp.store import SCHEMA_VERSION
+from crosswalk_mcp.store import CSF_RELEASE, SCHEMA_VERSION
 from crosswalk_mcp.tools.common import get_store, snapshot_provenance
 
 SCOPE_NOTE = (
@@ -28,6 +28,8 @@ def data_status() -> dict:
             ).fetchone()[0]
             for r in releases
         }
+        csf_document = store.csf_document()
+        csf_counts = store.csf_counts()
     recorded = {s["key"]: s for s in meta["sources"]}
     sources = []
     for source in SOURCES:
@@ -51,6 +53,16 @@ def data_status() -> dict:
                 "controls_and_enhancements": counts[r["release"]],
             }
             for r in releases
+        ]
+        + [
+            {
+                "dataset": "CSF 2.0",
+                "release": CSF_RELEASE,
+                "version_as_published": csf_document["version"],
+                "source_key": csf_document["source_key"],
+                "active": csf_counts["active"],
+                "legacy_identifiers": sum(csf_counts["legacy"].values()),
+            }
         ],
         "sources": sources,
         "store_schema_version": SCHEMA_VERSION,

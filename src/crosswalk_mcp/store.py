@@ -25,11 +25,11 @@ from pathlib import Path
 
 from crosswalk_mcp.config import settings
 from crosswalk_mcp.diff import diff_catalog
-from crosswalk_mcp.loaders import oscal_baselines, sp800_53
+from crosswalk_mcp.loaders import csf, oscal_baselines, sp800_53
 from crosswalk_mcp.snapshot import SnapshotError, raw_dir, read_manifest, verify
 
 DB_NAME = "crosswalk.sqlite"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Which raw source feeds which 800-53 release. The newest release is first,
 # which makes it the default for lookups.
@@ -45,6 +45,10 @@ BASELINES: tuple[tuple[str, str], ...] = (
     ("high", "baseline_high"),
     ("privacy", "baseline_privacy"),
 )
+
+# The raw source that holds the CSF 2.0 core, and the release it is.
+CSF_SOURCE = "csf_2_0_0"
+CSF_RELEASE = "2.0"
 
 SCHEMA = """
 CREATE TABLE meta (
@@ -184,6 +188,67 @@ CREATE TABLE baseline_members (
 );
 CREATE INDEX baseline_members_control ON baseline_members (control_id);
 
+-- CSF 2.0 from the CPRT export. One document row describes the export.
+CREATE TABLE csf_documents (
+    doc_identifier TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    version TEXT NOT NULL,
+    website TEXT NOT NULL,
+    source_key TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL
+);
+
+-- Functions (GV), categories (GV.OC), and subcategories (GV.OC-01).
+-- legacy marks a CSF 1.1 identifier that CSF 2.0 retired; legacy_note is
+-- the CPRT text saying where its content went.
+CREATE TABLE csf_elements (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    parent_id TEXT,
+    function_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    text TEXT NOT NULL,
+    sort_key TEXT NOT NULL,
+    legacy INTEGER NOT NULL,
+    legacy_note TEXT
+);
+CREATE INDEX csf_elements_parent ON csf_elements (parent_id, sort_key);
+
+CREATE TABLE csf_examples (
+    element_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    text TEXT NOT NULL,
+    position INTEGER NOT NULL
+);
+CREATE INDEX csf_examples_element ON csf_examples (element_id, position);
+
+-- Where a legacy identifier went: incorporated_into or moved_to.
+CREATE TABLE csf_relations (
+    source_id TEXT NOT NULL,
+    dest_id TEXT NOT NULL,
+    kind TEXT NOT NULL
+);
+CREATE INDEX csf_relations_source ON csf_relations (source_id);
+CREATE INDEX csf_relations_dest ON csf_relations (dest_id);
+
+-- Informative references as CPRT publishes them: target_doc names the
+-- SP 800-53 release and target_id is a family, never a single control.
+CREATE TABLE csf_references (
+    element_id TEXT NOT NULL,
+    target_doc TEXT NOT NULL,
+    target_id TEXT NOT NULL
+);
+CREATE INDEX csf_references_element ON csf_references (element_id);
+
+-- CPRT's first party and third party risk tags on subcategories.
+CREATE TABLE csf_tags (
+    element_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    label TEXT NOT NULL
+);
+CREATE INDEX csf_tags_element ON csf_tags (element_id);
+
 CREATE VIRTUAL TABLE controls_fts USING fts5(
     release UNINDEXED,
     id UNINDEXED,
@@ -284,6 +349,14 @@ def build(source_dir: Path | None = None, dest: Path | None = None) -> BuildRepo
             _insert(conn, "baselines", [rows.baseline])
             _insert(conn, "baseline_members", rows.members)
 
+        entry = by_key[CSF_SOURCE]
+        with (source_dir / entry["filename"]).open("rb") as handle:
+            payload = json.load(handle)
+        csf_rows = csf.load(payload, CSF_SOURCE, entry["sha256"])
+        _insert(conn, "csf_documents", [csf_rows.document])
+        for table in ("elements", "examples", "relations", "references", "tags"):
+            _insert(conn, f"csf_{table}", getattr(csf_rows, table))
+
         meta = {
             "schema_version": str(SCHEMA_VERSION),
             "manifest_hash": manifest["manifest_hash"],
@@ -321,6 +394,11 @@ def _counts(conn: sqlite3.Connection) -> dict[str, int]:
         "cprt_baselines",
         "baselines",
         "baseline_members",
+        "csf_elements",
+        "csf_examples",
+        "csf_relations",
+        "csf_references",
+        "csf_tags",
     ]
     return {t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in tables}
 
@@ -555,6 +633,100 @@ class Store:
             )
         return self._diff_cache[key]
 
+    def release_for_document(self, doc_identifier: str) -> str | None:
+        """The 800-53 release built from a CPRT document such as
+        SP_800_53_5_1_1, or None if the store does not hold it. Each release
+        is its own document in NIST's data; if a store were built with the
+        same document twice, the oldest release wins."""
+        row = self.conn.execute(
+            "SELECT release FROM releases WHERE doc_identifier = ? "
+            "ORDER BY release LIMIT 1",
+            (doc_identifier,),
+        ).fetchone()
+        return row["release"] if row else None
+
+    def family_titles(self, release: str) -> dict[str, str]:
+        rows = self.conn.execute(
+            "SELECT id, title FROM families WHERE release = ? ORDER BY id", (release,)
+        ).fetchall()
+        return {row["id"]: row["title"] for row in rows}
+
+    def csf_document(self) -> dict:
+        return dict(self.conn.execute("SELECT * FROM csf_documents").fetchone())
+
+    def csf_counts(self) -> dict:
+        """How many active and legacy identifiers of each kind the store holds."""
+        counts: dict[str, dict[str, int]] = {"active": {}, "legacy": {}}
+        for row in self.conn.execute(
+            "SELECT kind, legacy, count(*) AS n FROM csf_elements GROUP BY kind, legacy"
+        ):
+            counts["legacy" if row["legacy"] else "active"][row["kind"]] = row["n"]
+        return counts
+
+    def get_csf_element(self, csf_id: str) -> dict | None:
+        """One function, category, or subcategory with everything attached."""
+        q = self.conn.execute
+        row = q("SELECT * FROM csf_elements WHERE id = ?", (csf_id,)).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["legacy"] = bool(result["legacy"])
+        result["examples"] = [
+            {"id": r["id"], "label": r["label"], "text": r["text"]}
+            for r in q(
+                "SELECT id, label, text FROM csf_examples WHERE element_id = ? "
+                "ORDER BY position",
+                (csf_id,),
+            )
+        ]
+        result["tags"] = [
+            {"tag": r["tag"], "label": r["label"]}
+            for r in q(
+                "SELECT tag, label FROM csf_tags WHERE element_id = ? ORDER BY rowid",
+                (csf_id,),
+            )
+        ]
+        result["references"] = [
+            {"target_doc": r["target_doc"], "target_id": r["target_id"]}
+            for r in q(
+                "SELECT target_doc, target_id FROM csf_references "
+                "WHERE element_id = ? ORDER BY target_id",
+                (csf_id,),
+            )
+        ]
+        relations: dict[str, list[str]] = defaultdict(list)
+        for r in q(
+            "SELECT dest_id, kind FROM csf_relations WHERE source_id = ? "
+            "ORDER BY rowid",
+            (csf_id,),
+        ):
+            relations[r["kind"]].append(r["dest_id"])
+        result["incorporated_into"] = relations.get("incorporated_into", [])
+        result["moved_to"] = relations.get("moved_to", [])
+        result["legacy_sources"] = [
+            {"id": r["source_id"], "kind": r["kind"]}
+            for r in q(
+                "SELECT source_id, kind FROM csf_relations WHERE dest_id = ? "
+                "ORDER BY source_id",
+                (csf_id,),
+            )
+        ]
+        result["children"] = [
+            {
+                "id": r["id"],
+                "kind": r["kind"],
+                "title": r["title"],
+                "text": r["text"],
+                "legacy": bool(r["legacy"]),
+            }
+            for r in q(
+                "SELECT id, kind, title, text, legacy FROM csf_elements "
+                "WHERE parent_id = ? ORDER BY sort_key, id",
+                (csf_id,),
+            )
+        ]
+        return result
+
     def baselines(self) -> list[dict]:
         rows = self.conn.execute(
             "SELECT b.*, (SELECT count(*) FROM baseline_members m "
@@ -749,6 +921,11 @@ def main(argv: list[str] | None = None) -> int:
                     f"  800-53B {baseline['baseline']}: "
                     f"{baseline['member_count']} controls"
                 )
+            csf_counts = store.csf_counts()
+            print(
+                f"  CSF 2.0: {csf_counts['active'].get('subcategory', 0)} active "
+                f"subcategories, {sum(csf_counts['legacy'].values())} legacy ids"
+            )
             store.close()
     except (StoreError, SnapshotError) as exc:
         print(f"error: {exc}", file=sys.stderr)
