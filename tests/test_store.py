@@ -131,6 +131,8 @@ def test_build_and_open_store(tmp_path: Path):
     assert report.counts["baseline_members"] == 6
     assert report.counts["csf_elements"] == 7
     assert report.counts["csf_references"] == 3
+    assert report.counts["fedramp_indicators"] == 3
+    assert report.counts["fedramp_control_guidance"] == 3
     assert not out.with_suffix(".sqlite.part").exists()
 
     s = store.open_store(out)

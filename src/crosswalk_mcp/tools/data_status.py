@@ -30,6 +30,8 @@ def data_status() -> dict:
         }
         csf_document = store.csf_document()
         csf_counts = store.csf_counts()
+        fedramp_document = store.fedramp_document()
+        fedramp_counts = store.fedramp_counts()
     recorded = {s["key"]: s for s in meta["sources"]}
     sources = []
     for source in SOURCES:
@@ -62,7 +64,14 @@ def data_status() -> dict:
                 "source_key": csf_document["source_key"],
                 "active": csf_counts["active"],
                 "legacy_identifiers": sum(csf_counts["legacy"].values()),
-            }
+            },
+            {
+                "dataset": "FedRAMP Consolidated Rules",
+                "release": fedramp_document["version"],
+                "last_updated": fedramp_document["last_updated"],
+                "source_key": fedramp_document["source_key"],
+                **fedramp_counts,
+            },
         ],
         "sources": sources,
         "store_schema_version": SCHEMA_VERSION,

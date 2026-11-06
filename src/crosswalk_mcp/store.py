@@ -25,11 +25,11 @@ from pathlib import Path
 
 from crosswalk_mcp.config import settings
 from crosswalk_mcp.diff import diff_catalog
-from crosswalk_mcp.loaders import csf, oscal_baselines, sp800_53
+from crosswalk_mcp.loaders import csf, fedramp, oscal_baselines, sp800_53
 from crosswalk_mcp.snapshot import SnapshotError, raw_dir, read_manifest, verify
 
 DB_NAME = "crosswalk.sqlite"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Which raw source feeds which 800-53 release. The newest release is first,
 # which makes it the default for lookups.
@@ -49,6 +49,9 @@ BASELINES: tuple[tuple[str, str], ...] = (
 # The raw source that holds the CSF 2.0 core, and the release it is.
 CSF_SOURCE = "csf_2_0_0"
 CSF_RELEASE = "2.0"
+
+# The raw source that holds the FedRAMP consolidated rules.
+FEDRAMP_SOURCE = "fedramp_rules"
 
 SCHEMA = """
 CREATE TABLE meta (
@@ -249,6 +252,81 @@ CREATE TABLE csf_tags (
 );
 CREATE INDEX csf_tags_element ON csf_tags (element_id);
 
+-- FedRAMP consolidated rules. One document row describes the file.
+CREATE TABLE fedramp_documents (
+    title TEXT NOT NULL,
+    version TEXT NOT NULL,
+    last_updated TEXT NOT NULL,
+    source_key TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL
+);
+
+-- Key Security Indicator themes (KSI-CED) and indicators (KSI-CED-RAT).
+CREATE TABLE fedramp_themes (
+    id TEXT PRIMARY KEY,
+    short_name TEXT NOT NULL,
+    name TEXT NOT NULL,
+    web_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    position INTEGER NOT NULL
+);
+
+-- statement is NULL when the indicator varies by authorization class;
+-- the per class statements are in fedramp_indicator_classes.
+CREATE TABLE fedramp_indicators (
+    id TEXT PRIMARY KEY,
+    theme_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    statement TEXT,
+    position INTEGER NOT NULL,
+    updated TEXT NOT NULL,
+    terms TEXT NOT NULL
+);
+CREATE INDEX fedramp_indicators_theme ON fedramp_indicators (theme_id, position);
+
+CREATE TABLE fedramp_indicator_classes (
+    indicator_id TEXT NOT NULL,
+    class TEXT NOT NULL,
+    statement TEXT NOT NULL
+);
+CREATE INDEX fedramp_indicator_classes_indicator
+    ON fedramp_indicator_classes (indicator_id);
+
+-- The controls FedRAMP lists under each indicator, in file order. The
+-- file names no SP 800-53 release for them.
+CREATE TABLE fedramp_indicator_controls (
+    indicator_id TEXT NOT NULL,
+    control_id TEXT NOT NULL,
+    oscal_id TEXT NOT NULL,
+    position INTEGER NOT NULL
+);
+CREATE INDEX fedramp_indicator_controls_indicator
+    ON fedramp_indicator_controls (indicator_id, position);
+CREATE INDEX fedramp_indicator_controls_control
+    ON fedramp_indicator_controls (control_id);
+
+CREATE TABLE fedramp_definitions (
+    id TEXT PRIMARY KEY,
+    term TEXT NOT NULL,
+    definition TEXT NOT NULL,
+    note TEXT,
+    tag TEXT,
+    alts TEXT NOT NULL
+);
+CREATE INDEX fedramp_definitions_term ON fedramp_definitions (term);
+
+-- Control specific guidance and parameter values. class is NULL when the
+-- entry applies to every authorization class.
+CREATE TABLE fedramp_control_guidance (
+    control_id TEXT NOT NULL,
+    class TEXT,
+    guidance TEXT NOT NULL,
+    parameters TEXT NOT NULL,
+    updated TEXT NOT NULL
+);
+CREATE INDEX fedramp_control_guidance_control
+    ON fedramp_control_guidance (control_id);
+
 CREATE VIRTUAL TABLE controls_fts USING fts5(
     release UNINDEXED,
     id UNINDEXED,
@@ -357,6 +435,21 @@ def build(source_dir: Path | None = None, dest: Path | None = None) -> BuildRepo
         for table in ("elements", "examples", "relations", "references", "tags"):
             _insert(conn, f"csf_{table}", getattr(csf_rows, table))
 
+        entry = by_key[FEDRAMP_SOURCE]
+        with (source_dir / entry["filename"]).open("rb") as handle:
+            payload = json.load(handle)
+        fedramp_rows = fedramp.load(payload, FEDRAMP_SOURCE, entry["sha256"])
+        _insert(conn, "fedramp_documents", [fedramp_rows.document])
+        for table in (
+            "themes",
+            "indicators",
+            "indicator_classes",
+            "indicator_controls",
+            "definitions",
+            "control_guidance",
+        ):
+            _insert(conn, f"fedramp_{table}", getattr(fedramp_rows, table))
+
         meta = {
             "schema_version": str(SCHEMA_VERSION),
             "manifest_hash": manifest["manifest_hash"],
@@ -399,6 +492,12 @@ def _counts(conn: sqlite3.Connection) -> dict[str, int]:
         "csf_relations",
         "csf_references",
         "csf_tags",
+        "fedramp_themes",
+        "fedramp_indicators",
+        "fedramp_indicator_classes",
+        "fedramp_indicator_controls",
+        "fedramp_definitions",
+        "fedramp_control_guidance",
     ]
     return {t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in tables}
 
@@ -727,6 +826,104 @@ class Store:
         ]
         return result
 
+    def fedramp_document(self) -> dict:
+        return dict(self.conn.execute("SELECT * FROM fedramp_documents").fetchone())
+
+    def fedramp_counts(self) -> dict[str, int]:
+        q = self.conn.execute
+        return {
+            "ksi_themes": q("SELECT count(*) FROM fedramp_themes").fetchone()[0],
+            "ksi_indicators": q("SELECT count(*) FROM fedramp_indicators").fetchone()[
+                0
+            ],
+            "ksi_control_links": q(
+                "SELECT count(*) FROM fedramp_indicator_controls"
+            ).fetchone()[0],
+            "definitions": q("SELECT count(*) FROM fedramp_definitions").fetchone()[0],
+            "controls_with_guidance": q(
+                "SELECT count(DISTINCT control_id) FROM fedramp_control_guidance"
+            ).fetchone()[0],
+        }
+
+    def ksi_themes(self) -> list[dict]:
+        """Every KSI theme in file order, with its indicator count."""
+        rows = self.conn.execute(
+            "SELECT t.*, (SELECT count(*) FROM fedramp_indicators i "
+            " WHERE i.theme_id = t.id) AS indicator_count "
+            "FROM fedramp_themes t ORDER BY position"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_ksi_theme(self, theme_id: str) -> dict | None:
+        """One theme with a short record of each indicator."""
+        row = self.conn.execute(
+            "SELECT * FROM fedramp_themes WHERE id = ?", (theme_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        theme = dict(row)
+        theme["indicators"] = [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "statement": r["statement"],
+                "varies_by_class": r["statement"] is None,
+                "control_count": r["control_count"],
+            }
+            for r in self.conn.execute(
+                "SELECT i.id, i.name, i.statement, "
+                "(SELECT count(*) FROM fedramp_indicator_controls c "
+                " WHERE c.indicator_id = i.id) AS control_count "
+                "FROM fedramp_indicators i WHERE i.theme_id = ? ORDER BY position",
+                (theme_id,),
+            )
+        ]
+        return theme
+
+    def get_ksi(self, indicator_id: str) -> dict | None:
+        """One indicator with its theme, class statements, controls, and the
+        FedRAMP definitions of the terms it uses."""
+        q = self.conn.execute
+        row = q(
+            "SELECT i.*, t.name AS theme_name FROM fedramp_indicators i "
+            "JOIN fedramp_themes t ON t.id = i.theme_id WHERE i.id = ?",
+            (indicator_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["updated"] = json.loads(result["updated"])
+        term_names = json.loads(result.pop("terms"))
+        result["classes"] = [
+            {"class": r["class"], "statement": r["statement"]}
+            for r in q(
+                "SELECT class, statement FROM fedramp_indicator_classes "
+                "WHERE indicator_id = ? ORDER BY class",
+                (indicator_id,),
+            )
+        ]
+        result["controls"] = [
+            {"id": r["control_id"], "oscal_id": r["oscal_id"]}
+            for r in q(
+                "SELECT control_id, oscal_id FROM fedramp_indicator_controls "
+                "WHERE indicator_id = ? ORDER BY position",
+                (indicator_id,),
+            )
+        ]
+        definitions = {
+            r["term"]: {
+                "term": r["term"],
+                "definition": r["definition"],
+                "note": r["note"],
+            }
+            for r in q("SELECT term, definition, note FROM fedramp_definitions")
+        }
+        result["terms"] = [
+            definitions.get(name, {"term": name, "definition": None, "note": None})
+            for name in term_names
+        ]
+        return result
+
     def baselines(self) -> list[dict]:
         rows = self.conn.execute(
             "SELECT b.*, (SELECT count(*) FROM baseline_members m "
@@ -925,6 +1122,12 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"  CSF 2.0: {csf_counts['active'].get('subcategory', 0)} active "
                 f"subcategories, {sum(csf_counts['legacy'].values())} legacy ids"
+            )
+            fedramp_counts = store.fedramp_counts()
+            print(
+                f"  FedRAMP KSI: {fedramp_counts['ksi_indicators']} indicators in "
+                f"{fedramp_counts['ksi_themes']} themes, "
+                f"{fedramp_counts['ksi_control_links']} control links"
             )
             store.close()
     except (StoreError, SnapshotError) as exc:

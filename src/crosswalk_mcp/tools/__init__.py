@@ -13,6 +13,7 @@ from crosswalk_mcp.tools import (
     diff_releases,
     get_control,
     get_csf_element,
+    get_ksi,
     search,
 )
 
@@ -24,6 +25,7 @@ def register_tools(mcp) -> None:
     baselines.register(mcp)
     diff_releases.register(mcp)
     get_csf_element.register(mcp)
+    get_ksi.register(mcp)
     data_status.register(mcp)
 
 

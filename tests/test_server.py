@@ -61,5 +61,6 @@ async def test_tools_are_discoverable():
         "controls_baseline_membership",
         "controls_diff_releases",
         "controls_get_csf_element",
+        "controls_get_ksi",
         "controls_data_status",
     } <= tool_names

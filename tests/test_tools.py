@@ -28,6 +28,7 @@ async def test_tools_are_listed():
         "controls_baseline_membership",
         "controls_diff_releases",
         "controls_get_csf_element",
+        "controls_get_ksi",
         "controls_data_status",
     }
 
@@ -94,7 +95,23 @@ async def test_missing_store_is_reported(tmp_path):
 
 async def test_data_status(tiny_store):
     result = await call("controls_data_status")
-    assert [d["release"] for d in result["datasets"]] == ["5.2.0", "5.1.1", "2.0"]
+    assert [d["release"] for d in result["datasets"]] == [
+        "5.2.0",
+        "5.1.1",
+        "2.0",
+        "2026.01.01.01",
+    ]
+    assert result["datasets"][3] == {
+        "dataset": "FedRAMP Consolidated Rules",
+        "release": "2026.01.01.01",
+        "last_updated": "2026-01-01",
+        "source_key": "fedramp_rules",
+        "ksi_themes": 2,
+        "ksi_indicators": 3,
+        "ksi_control_links": 5,
+        "definitions": 1,
+        "controls_with_guidance": 3,
+    }
     assert result["datasets"][0]["controls_and_enhancements"] == 5
     assert result["datasets"][2] == {
         "dataset": "CSF 2.0",

@@ -253,6 +253,101 @@ def tiny_csf_export() -> dict:
     }
 
 
+def tiny_fedramp_rules() -> dict:
+    """Two KSI themes. KSI-CED-RAT relates to AC-2, the withdrawn AC-2(10),
+    AU-6, and PL-4 (absent from the test catalog) and uses one defined
+    term. KSI-CED-VAR varies by class and lists no controls. KSI-CMT-LMC
+    relates to AU-6. CTL guidance covers AC-2 (all classes), AC-2(10)
+    (class c only), and AU-6 (a parameter value)."""
+    return {
+        "info": {
+            "title": "Test rules",
+            "description": "",
+            "version": "2026.01.01.01",
+            "last_updated": "2026-01-01",
+            "default_artifacts": {},
+        },
+        "FRD": {
+            "info": {},
+            "data": {
+                "all": {
+                    "FRD-PER": {
+                        "term": "Persistently",
+                        "definition": "Repeated over time.",
+                        "note": "Not the same as continuously.",
+                        "tag": "General",
+                        "alts": ["persistently"],
+                    }
+                }
+            },
+        },
+        "FRR": {},
+        "KSI": {
+            "CED": {
+                "id": "KSI-CED",
+                "name": "Cybersecurity Education",
+                "web_name": "cybersecurity-education",
+                "short_name": "CED",
+                "status": "stable",
+                "indicators": {
+                    "KSI-CED-RAT": {
+                        "name": "Reviewing All Training",
+                        "statement": "Training is persistently reviewed.",
+                        "controls": ["ac-2", "ac-2.10", "au-6", "pl-4"],
+                        "updated": [{"date": "2026-01-01", "comment": "Launch."}],
+                        "terms": ["Persistently", "Undefined Term"],
+                    },
+                    "KSI-CED-VAR": {
+                        "name": "Varies",
+                        "varies_by_class": {
+                            "c": {"statement": "Do it."},
+                            "b": {"statement": "**Optional:** Do it."},
+                        },
+                        "controls": [],
+                        "updated": [],
+                    },
+                },
+            },
+            "CMT": {
+                "id": "KSI-CMT",
+                "name": "Change Management",
+                "web_name": "change-management",
+                "short_name": "CMT",
+                "status": "stable",
+                "indicators": {
+                    "KSI-CMT-LMC": {
+                        "name": "Log Changes",
+                        "statement": "Changes are logged.",
+                        "controls": ["au-6"],
+                        "updated": [],
+                        "terms": [],
+                    }
+                },
+            },
+        },
+        "CTL": {
+            "AC": {
+                "AC-02": {"guidance": ["Follow the guide."]},
+                "AC-02-10": {
+                    "varies_by_class": {
+                        "c": {
+                            "parameters": [
+                                {"parameterId": "ac-02.10_odp", "value": "daily"}
+                            ]
+                        }
+                    }
+                },
+            },
+            "AU": {
+                "AU-06": {
+                    "parameters": [{"parameterId": "au-06_odp.01", "value": "weekly"}],
+                    "updated": [{"date": "2026-01-01", "comment": "Set."}],
+                }
+            },
+        },
+    }
+
+
 BASELINE_MEMBERS = {
     "low": ["ac-2"],
     "moderate": ["ac-2", "au-6"],
@@ -304,6 +399,8 @@ def write_raw_dir(tmp_path: Path) -> Path:
             path.write_text(json.dumps(tiny_baseline(level)), encoding="utf-8")
         elif source.key == "csf_2_0_0":
             path.write_text(json.dumps(tiny_csf_export()), encoding="utf-8")
+        elif source.key == "fedramp_rules":
+            path.write_text(json.dumps(tiny_fedramp_rules()), encoding="utf-8")
         else:
             path.write_text("{}", encoding="utf-8")
         entries.append(
