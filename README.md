@@ -1,189 +1,157 @@
-# GSA MCP Hackathon — Server Template
+# Controls Crosswalk MCP
 
-A ready-to-run starter for building a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server in Python, plus deployment kits for **IBM Cloud (watsonx Orchestrate)** and **Databricks**.
+A read-only [Model Context Protocol](https://modelcontextprotocol.io) server over NIST SP 800-53, the SP 800-53B baselines, the Cybersecurity Framework (CSF) 2.0, and the FedRAMP Key Security Indicators (KSIs). It helps security teams explain what changed between SP 800-53 releases, trace the relationships these frameworks publish between each other, and retrieve assessment guidance, with every answer tied to its source file, release, and citation.
 
-Built with [FastMCP](https://github.com/jlowin/fastmcp) and [uv](https://docs.astral.sh/uv/). If you have never built an MCP server before, start with **[QUICKSTART.md](QUICKSTART.md)**.
+Built for the 2026 GSA MCP Server and AI Agent Government Hackathon on the [GSA FastMCP template](https://github.com/GSA-TTS/mcp-hackathon-template). Unofficial: not affiliated with or endorsed by NIST, GSA, or FedRAMP.
 
----
+## What it answers
 
-## What is an MCP server?
+- What changed in SI-7(12) between SP 800-53 release 5.1.1 and 5.2.0, and which baselines does that affect?
+- Which controls, parameters, objectives, and assessment methods does AC-2 have in the current release?
+- Which SP 800-53 families does CSF subcategory PR.AA-01 reference, and which FedRAMP KSIs relate to those controls?
+- Which controls does FedRAMP list under KSI-CED-RAT, and what does FedRAMP say about AC-20?
+- Is IR-4(4) in the moderate baseline?
 
-An MCP server exposes **tools** (functions the model can call), **prompts** (reusable conversation starters), and **resources** (data the model can read) to an AI client such as Claude Desktop, Claude Code, or an agent platform like watsonx Orchestrate. You write the tools; the client's model decides when to call them.
+Every result carries a `provenance` block with the snapshot hash, the source file and its SHA-256, and a citation URL. Relationship results are labeled `direct` when they are a single published link and `derived` when the server composed links. The server never states that a requirement, control, or indicator is satisfied.
 
-This template gives you a working server with one example of each, so you can replace the examples with your own service and deploy.
+## Data sources
 
----
+All data is public. GitHub sources are pinned to a commit. CPRT exports cannot be pinned, so the snapshot manifest records the hash of what was fetched and the build refuses to run if the files do not match it.
 
-## Repo structure
+| Dataset | Publisher | Source | Notes |
+|---|---|---|---|
+| SP 800-53 Rev. 5, releases 5.1.1 and 5.2.0, with SP 800-53A assessment procedures | NIST | [CPRT](https://csrc.nist.gov/projects/cprt) JSON export | Both full catalogs are stored, so any control can be read in either release |
+| SP 800-53B baselines (low, moderate, high, privacy) | NIST | [usnistgov/oscal-content](https://github.com/usnistgov/oscal-content), resolved profile catalogs | Pinned commit |
+| CSF 2.0 core with informative references | NIST | CPRT JSON export | References to SP 800-53 are published at the family level and target release 5.1.1 |
+| FedRAMP Consolidated Rules (KSIs, definitions, control guidance) | FedRAMP | [FedRAMP/rules](https://github.com/FedRAMP/rules) | Pinned commit. Control links are published without naming an SP 800-53 release |
 
-```
-mcp-hackathon-template/
-├── README.md                  # This file
-├── QUICKSTART.md              # 5-minute clone → run → connect walkthrough
-├── main.py                    # Local entry point (uv run python main.py)
-├── pyproject.toml             # Package + dependencies (uv)
-├── requirements.txt           # Mirror of runtime deps (for buildpack hosts)
-├── Dockerfile                 # Container image (streamable-HTTP, port 8080)
-├── manifest.yaml              # cloud.gov (Cloud Foundry) deploy
-├── server.json                # MCP registry metadata
-├── .env.example               # Copy to .env for local dev
-├── .github/workflows/ci.yml   # Lint + test on push/PR
-├── docs/                      # Vendor-contributed reference materials
-├── src/
-│   └── crosswalk_mcp/        # ← rename to your service
-│       ├── app.py             # Thin entry point: builds FastMCP, picks transport
-│       ├── config.py          # Settings from env vars / .env
-│       ├── models.py          # Pydantic models & enums for tool params
-│       ├── utils.py           # Shared helpers (HTTP client, pagination)
-│       ├── routes.py          # HTTP-only routes (/health, /version)
-│       ├── tools/             # ONE FILE PER TOOL
-│       │   ├── __init__.py    #   register_tools(mcp) aggregator
-│       │   └── example_tool.py
-│       ├── prompts/
-│       │   ├── __init__.py    #   register_prompts(mcp) aggregator
-│       │   └── example.py
-│       └── resources/
-│           ├── __init__.py    #   register_resources(mcp) aggregator
-│           └── example.py
-├── tests/                     # Import + registration smoke tests
-├── eval/                      # Stub → build a Phoenix eval harness (see mcp-eval skill)
-└── deploy/
-    ├── README.md              # Which deployment kit to use
-    ├── ibm/                   # watsonx Orchestrate: 3 kits (see below)
-    └── databricks/            # Databricks Apps kit
-```
+The exact URLs live in `src/crosswalk_mcp/sources.py`. The manifest of fetched files is committed at `data/raw/manifest.json`; the files themselves and the built SQLite store are not.
 
----
+## Tools
 
-## Getting started
+All tools are read-only, take typed parameters, and return structured data.
 
-### Prerequisites
-- [uv](https://docs.astral.sh/uv/) — `pip install uv` or `brew install uv`
+| Tool | What it does |
+|---|---|
+| `controls_get_control` | One control or enhancement in full: statement tree, discussion, parameters, assessment objectives and methods, references, related controls, enhancements, baseline flags, withdrawal details, and the FedRAMP KSIs and guidance that name it. Any release. |
+| `controls_search` | Full-text search over titles, statements, and discussion, with family, baseline, and release filters. |
+| `controls_get_baseline` | The members of one SP 800-53B baseline, optionally one family, paginated. |
+| `controls_baseline_membership` | Which baselines select each of up to 50 controls. |
+| `controls_diff_releases` | What changed between two releases for the whole catalog, one family, or one control. Control view shows before and after text for statements, parameters, objectives, assessment methods, references, and relations. |
+| `controls_get_csf_element` | One CSF 2.0 function, category, or subcategory with examples and its published SP 800-53 family references. Retired CSF 1.1 identifiers are returned as legacy. |
+| `controls_get_ksi` | FedRAMP KSI themes, one theme's indicators, or one indicator with its statement, defined terms, change history, and related controls. |
+| `controls_crosswalk` | Follow published links from a control, CSF element, or KSI into another framework. Direct and derived hits are reported separately, each with its path, link labels, and citation. |
+| `controls_data_status` | Which datasets and releases the server holds, the snapshot hash, and every source URL with its file hash. |
 
-### Install and run
+Identifiers are accepted in any common spelling: `AC-2(3)`, `AC-02(03)`, `ac-2.3`, `PR.AA-01`, `pr.aa-1`, `KSI-CNA-EIS`.
+
+## Prompts and resources
+
+Prompts are preset starters that chain the tools and tell the model to stay within what the tools return.
+
+- `review_release_changes` reviews a catalog, family, or control between two releases, with baseline impact and citations.
+- `trace_relationships` looks up one identifier and follows its published links into the other frameworks.
+
+Resources are reference lists a client can read without a tool call.
+
+- `crosswalk://data-status` datasets, releases, snapshot hash, and sources.
+- `crosswalk://families` SP 800-53 family ids and titles per release.
+- `crosswalk://csf-outline` CSF 2.0 functions and categories.
+- `crosswalk://ksi-themes` FedRAMP KSI themes and their indicators.
+
+## Setup
+
+You need [uv](https://docs.astral.sh/uv/). Python 3.11 is installed by uv.
 
 ```bash
 cp .env.example .env
-uv sync
-uv run python main.py
+uv sync --group dev
 ```
 
-The server starts in **stdio** mode — it talks JSON-RPC over stdin/stdout, which is how local clients (Claude Desktop, Claude Code) launch it. See [QUICKSTART.md](QUICKSTART.md) to connect a client.
-
-### Verify
+The server reads a SQLite store that is built once from the fetched source files. Building is an operator step, never done at request time.
 
 ```bash
-uv sync --group dev
-uv run pytest tests/ -v      # tests
-uv run ruff check .          # lint
+# 1. Download the sources and write data/raw/manifest.json (about 45 MB).
+uv run python -m crosswalk_mcp.snapshot fetch
+
+# 2. Build data/crosswalk.sqlite from them (a few seconds).
+uv run python -m crosswalk_mcp.store build
+
+# 3. Confirm what was built.
+uv run python -m crosswalk_mcp.store status
 ```
 
----
+If `fetch` reports a hash that differs from the committed manifest, NIST or FedRAMP republished a file. The server still works on the new snapshot; the difference is simply visible in every result's provenance. To verify the files you have against the manifest, run `uv run python -m crosswalk_mcp.snapshot verify`.
 
-## The one-tool-per-file pattern
+On a laptop with TLS interception, set `SSL_CERT_FILE` to your CA bundle before running `fetch`. The fetch honors proxy and certificate environment variables; the server itself never makes network calls.
 
-Each tool lives in its own file under `src/crosswalk_mcp/tools/` and exposes a `register(mcp)` function. `tools/__init__.py` calls each one from a single `register_tools(mcp)`. This keeps the tool list scannable and lets you add or remove an integration by touching two files.
+## Run
 
-**Step 1 — create `src/crosswalk_mcp/tools/my_tool.py`:**
+Local clients launch the server over stdio. Add this to Claude Code's `.mcp.json` or Claude Desktop's config, with the absolute path to this repo:
 
-```python
-from typing import Annotated
-from urllib.parse import quote
-from fastmcp import FastMCP
-
-from crosswalk_mcp.utils import fetch_json
-
-
-def register(mcp: FastMCP) -> None:
-    @mcp.tool(
-        name="example_get_thing",
-        annotations={
-            "title": "Get a thing",
-            "readOnlyHint": True,
-            "destructiveHint": False,
-            "idempotentHint": True,
-            "openWorldHint": True,
-        },
-    )
-    async def get_thing(thing_id: Annotated[str, "The ID to fetch."]) -> dict:
-        """One-line summary. Document the data source, its update cadence,
-        and the return shape here — the model reads this docstring."""
-        safe_id = quote(thing_id, safe="")
-        return await fetch_json(f"things/{safe_id}")
+```json
+{
+  "mcpServers": {
+    "controls-crosswalk": {
+      "command": "uv",
+      "args": ["run", "crosswalk-mcp"],
+      "cwd": "/absolute/path/to/controls-crosswalk-mcp"
+    }
+  }
+}
 ```
 
-**Step 2 — wire it up in `tools/__init__.py`:**
+Then try: "What changed in SI-7(12) between SP 800-53 5.1.1 and 5.2.0?" or use the `trace_relationships` prompt with `PR.AA-01`.
 
-```python
-from crosswalk_mcp.tools import example_tool, my_tool
+To serve HTTP instead, for a container or an agent platform:
 
-def register_tools(mcp) -> None:
-    example_tool.register(mcp)
-    my_tool.register(mcp)  # ← add this line
+```bash
+MCP_TRANSPORT=streamable-http uv run python main.py
+curl http://localhost:8000/health
 ```
 
-**Step 3 — add any API key** as a typed field in `config.py` and document the env var in `.env.example`.
+The MCP endpoint is `/mcp`. The server also switches to HTTP on its own when a platform sets `PORT` or `DATABRICKS_APP_PORT`. See [deploy/README.md](deploy/README.md) for the IBM watsonx Orchestrate and Databricks kits from the template.
 
-Prompts (`prompts/`) and resources (`resources/`) follow the exact same `register(mcp)` + aggregator pattern.
+## Verify
 
----
+```bash
+uv run pytest -q                    # offline, against a tiny fixture store
+uv run ruff check src tests
+uv run ruff format --check src tests
+```
 
-## Rename the package
+Tests marked with the real store run only when `data/crosswalk.sqlite` exists. They check facts verified by hand against the published files: the 106 active CSF 2.0 subcategories, the three controls added in 5.2.0, the 46 KSIs, and more. CI runs the same lint, format check, and tests on every push.
 
-Before publishing your server, rename `crosswalk_mcp` to your service (e.g. `census_mcp`):
+## How it is built
 
-1. Rename the folder `src/crosswalk_mcp/` → `src/<your_name>/`.
-2. Update `pyproject.toml`: the `[project].name`, `[project.scripts]`, and `[tool.hatch.build.targets.wheel].packages`.
-3. Find-and-replace `crosswalk_mcp` across `src/`, `tests/`, `main.py`, `Dockerfile`, and `manifest.yaml`.
+```
+src/crosswalk_mcp/
+├── app.py            FastMCP instance, transport selection
+├── sources.py        the pinned public sources
+├── snapshot.py       fetch sources, write and verify the manifest
+├── loaders/          one pure function per source file, returning rows
+├── store.py          SQLite schema, build step, read methods
+├── diff.py           release comparison, section by section
+├── ids.py            identifier parsing and normalization
+├── models.py         enums and Pydantic parameter models
+├── tools/            one file per tool, plus common.py for provenance
+├── prompts/          one file per prompt
+└── resources/        reference lists
+```
 
----
+Loaders never touch the network or the database. The store is opened read-only, and one connection serves all tools under a lock. Full-text search uses SQLite FTS5 with every query word quoted, so operators in user input cannot change the query. Text is reproduced from the sources without change; the server adds labels and citations, never judgments.
 
-## Tool design tips (federal data)
+## Scope and limits
 
-- **Return structured data, not prose.** Return dicts/lists with consistent keys and let the model narrate.
-- **Document freshness.** Federal datasets lag; state the update frequency and "as-of" date in the docstring.
-- **Expose pagination.** Use `PaginationParams` / `paginate()` from `utils.py`, and return `has_more` / `next_offset`.
-- **Use explicit timeouts.** `utils.fetch_json` defaults to 30s.
-- **Actionable errors.** Return an error dict with a `hint`, not a raw stack trace.
-- **Constrain outbound requests.** Keep API origins in operator-controlled code or configuration, pass only validated relative paths to `fetch_json`, and encode path segments. Never pass a tool-supplied URL directly to an HTTP client.
-- **Treat redirects and DNS as security boundaries.** Redirects are disabled by default. A server that must fetch caller-supplied URLs needs connection-time IP validation on every hop plus network egress controls; a one-time DNS check is not sufficient.
-- **Keep sensitive data out of errors and logs.** Do not expose or log upstream bodies, headers, full URLs, query strings, credentials, stack traces, SSNs, dates of birth, or addresses.
+- The CSF to SP 800-53 mapping NIST publishes in CPRT names families, not controls. The server returns it that way and says so. Control-level crosswalks from CSF are always labeled derived.
+- FedRAMP's related control lists name no SP 800-53 release. The server resolves titles and baselines against 5.2.0 and labels the release as unspecified.
+- Derived paths chain at most two published links through family membership. They are a starting point for analysis, not a published mapping.
+- No writes, no OSCAL generation, no vulnerability data, no compliance verdicts, no authentication on the pilot endpoint, no AI RMF.
 
----
+## Evaluation and deployment
 
-## Deploying
-
-Local development uses stdio. To share your server with an agent platform, deploy it and register it. See **[deploy/README.md](deploy/README.md)** for a chooser, then:
-
-- **IBM watsonx Orchestrate** — [deploy/ibm/](deploy/ibm/) (three kits: local stdio toolkit, Code Engine build-from-Git, and prebuilt image).
-- **Databricks Apps** — [deploy/databricks/](deploy/databricks/).
-
-Both read the same server code; `app.py` automatically serves HTTP when the platform injects a port.
-
----
-
-## Partner reference materials
-
-The [`docs/`](docs/) directory contains educational reference materials that
-IBM and Databricks may contribute for hackathon participants. Vendor-contributed
-materials do not represent the views, positions, or policies of GSA or the
-United States Government.
-
-GSA does not endorse any commercial product, service, or enterprise referenced
-in these materials. Reference to a commercial product, service, or enterprise
-does not constitute or imply endorsement, recommendation, or favoring by GSA or
-the United States Government. These materials are provided for educational
-purposes only. See [`docs/README.md`](docs/README.md) for the complete notice and
-contribution guidance.
-
----
-
-## Evaluations
-
-Measuring how well an LLM can use your tools is the real test of server quality. This template intentionally does **not** ship an eval harness — see [eval/README.md](eval/README.md) for how to build one with the `mcp-eval` skill.
-
----
+The evaluation harness and the deployment notes are the next pieces of work; see [eval/README.md](eval/README.md) and [deploy/README.md](deploy/README.md) for the template's guidance until then.
 
 ## License
 
-[MIT](LICENSE). See [SECURITY.md](SECURITY.md) for the vulnerability disclosure policy and hackathon security notes.
+[MIT](LICENSE). See [SECURITY.md](SECURITY.md) for the vulnerability disclosure policy. Source content belongs to its publishers; NIST publications are in the public domain, and the FedRAMP rules file states no license, so the fetched files are not vendored in this repository.

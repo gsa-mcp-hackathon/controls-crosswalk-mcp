@@ -1,6 +1,7 @@
-# Quickstart — Your First MCP Server in 5 Minutes
+# Quickstart: run the Controls Crosswalk MCP in 5 minutes
 
 New to MCP? This gets you from clone to a running server connected to a client.
+The [README](README.md) has the full picture.
 
 ## 1. Install prerequisites
 
@@ -14,7 +15,15 @@ pip install uv     # or: brew install uv
 
 ```bash
 cp .env.example .env
-uv sync
+uv sync --group dev
+```
+
+Then fetch the public source files and build the SQLite store the server
+reads. Both are one-time operator steps:
+
+```bash
+uv run python -m crosswalk_mcp.snapshot fetch
+uv run python -m crosswalk_mcp.store build
 ```
 
 ## 3. Run the server
@@ -24,8 +33,8 @@ uv run python main.py
 ```
 
 The server starts in **stdio** mode and waits for a client to connect over
-stdin/stdout. That's correct — it doesn't print a URL, because a local MCP
-server is launched *by* the client as a subprocess. Press `Ctrl-C` to stop it.
+stdin/stdout. That is correct. It does not print a URL, because a local MCP
+server is launched by the client as a subprocess. Press `Ctrl-C` to stop it.
 
 ## 4. Connect a client
 
@@ -37,10 +46,10 @@ to this repo:
 ```json
 {
   "mcpServers": {
-    "example-mcp": {
+    "controls-crosswalk": {
       "command": "uv",
       "args": ["run", "crosswalk-mcp"],
-      "cwd": "/absolute/path/to/mcp-hackathon-template"
+      "cwd": "/absolute/path/to/controls-crosswalk-mcp"
     }
   }
 }
@@ -53,12 +62,12 @@ Add the same block to
 `%APPDATA%\Claude\claude_desktop_config.json` (Windows), then restart Claude
 Desktop.
 
-Once connected, ask the client to call the example tool, e.g.:
+Once connected, ask something the tools can answer, for example:
 
-> "Use the example_search_datasets tool to search for 'transportation'."
+> "What changed in SI-7(12) between SP 800-53 5.1.1 and 5.2.0?"
 
-You'll get placeholder results — proof the wiring works. Now replace the example
-with your own tool.
+The answer should quote the before and after text and end with a citation URL
+on csrc.nist.gov. That proves the wiring and the data store both work.
 
 ## 5. Verify everything
 
@@ -82,11 +91,8 @@ curl http://localhost:8000/health      # {"status":"healthy",...}
 
 ## Next steps
 
-- **Add a real tool** — follow "The one-tool-per-file pattern" in the
-  [README](README.md#the-one-tool-per-file-pattern).
-- **Rename the package** from `crosswalk_mcp` to your service — see the
-  [README](README.md#rename-the-package).
-- **Deploy it** — pick a kit in [deploy/README.md](deploy/README.md)
-  (IBM watsonx Orchestrate or Databricks).
-- **Evaluate it** — build an eval harness with the `mcp-eval` skill; see
-  [eval/README.md](eval/README.md).
+- Read the tool list and the scope notes in the [README](README.md).
+- Try the `review_release_changes` and `trace_relationships` prompts from
+  your client's prompt picker.
+- To share the server with an agent platform, pick a kit in
+  [deploy/README.md](deploy/README.md).
