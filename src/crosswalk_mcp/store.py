@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from crosswalk_mcp.config import settings
+from crosswalk_mcp.diff import diff_catalog
 from crosswalk_mcp.loaders import oscal_baselines, sp800_53
 from crosswalk_mcp.snapshot import SnapshotError, raw_dir, read_manifest, verify
 
@@ -333,6 +334,7 @@ class Store:
         # Tools may run on worker threads. One connection shared under a
         # lock is plenty for a read only store of this size.
         self.lock = threading.Lock()
+        self._diff_cache: dict[tuple[str, str], dict] = {}
 
     def close(self) -> None:
         self.conn.close()
@@ -458,6 +460,100 @@ class Store:
             ).fetchall()
         ]
         return result
+
+    def release_records(self, release: str) -> dict[str, dict]:
+        """Every control in one release, keyed by id, shaped like get_control.
+
+        Loads each table once instead of once per control, so comparing two
+        whole releases stays fast. Family titles, enhancements, and baseline
+        flags are left out because the comparison does not use them.
+        """
+        q = self.conn.execute
+        records: dict[str, dict] = {}
+        for row in q("SELECT * FROM controls WHERE release = ?", (release,)):
+            record = dict(row)
+            record["withdrawn"] = bool(record["withdrawn"])
+            record["privacy_baseline"] = bool(record["privacy_baseline"])
+            record.update(
+                statement=[],
+                objectives=[],
+                parameters=[],
+                assessment_methods={},
+                references=[],
+                related=[],
+                incorporated_into=[],
+                moved_to=[],
+            )
+            records[record["id"]] = record
+
+        statements: dict[str, list[sqlite3.Row]] = defaultdict(list)
+        for row in q(
+            "SELECT control_id, id, parent_id, label, text FROM statements "
+            "WHERE release = ? ORDER BY position",
+            (release,),
+        ):
+            statements[row["control_id"]].append(row)
+        for control_id, rows in statements.items():
+            records[control_id]["statement"] = _statement_tree(rows)
+
+        for row in q(
+            "SELECT control_id, id, statement_id, text, parameter_ids "
+            "FROM objectives WHERE release = ? ORDER BY position",
+            (release,),
+        ):
+            records[row["control_id"]]["objectives"].append(
+                {
+                    "id": row["id"],
+                    "statement_id": row["statement_id"],
+                    "text": row["text"],
+                    "parameter_ids": json.loads(row["parameter_ids"]),
+                }
+            )
+        for row in q(
+            "SELECT * FROM parameters WHERE release = ? ORDER BY rowid", (release,)
+        ):
+            records[row["control_id"]]["parameters"].append(
+                {
+                    "id": row["id"],
+                    "label": row["label"],
+                    "guideline": row["guideline"],
+                    "kind": row["kind"],
+                    "statement": row["statement"],
+                    "choices": json.loads(row["choices"]) if row["choices"] else None,
+                }
+            )
+        for row in q(
+            "SELECT control_id, method, text FROM assessment_methods WHERE release = ?",
+            (release,),
+        ):
+            records[row["control_id"]]["assessment_methods"][row["method"]] = row[
+                "text"
+            ]
+        for row in q(
+            "SELECT control_id, title, url FROM control_references "
+            "WHERE release = ? ORDER BY rowid",
+            (release,),
+        ):
+            records[row["control_id"]]["references"].append(
+                {"title": row["title"], "url": row["url"]}
+            )
+        for row in q(
+            "SELECT source_id, dest_id, kind FROM control_relations "
+            "WHERE release = ? ORDER BY rowid",
+            (release,),
+        ):
+            records[row["source_id"]][row["kind"]].append(row["dest_id"])
+        return records
+
+    def catalog_diff(self, from_release: str, to_release: str) -> dict:
+        """The catalog comparison from diff.diff_catalog, computed once per
+        pair of releases and kept, since the store never changes while open."""
+        key = (from_release, to_release)
+        if key not in self._diff_cache:
+            self._diff_cache[key] = diff_catalog(
+                self.release_records(from_release), self.release_records(to_release)
+            )
+        return self._diff_cache[key]
 
     def baselines(self) -> list[dict]:
         rows = self.conn.execute(

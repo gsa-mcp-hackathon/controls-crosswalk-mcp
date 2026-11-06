@@ -59,5 +59,6 @@ async def test_tools_are_discoverable():
         "controls_search",
         "controls_get_baseline",
         "controls_baseline_membership",
+        "controls_diff_releases",
         "controls_data_status",
     } <= tool_names

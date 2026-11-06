@@ -26,6 +26,7 @@ async def test_tools_are_listed():
         "controls_search",
         "controls_get_baseline",
         "controls_baseline_membership",
+        "controls_diff_releases",
         "controls_data_status",
     }
 
@@ -93,7 +94,7 @@ async def test_missing_store_is_reported(tmp_path):
 async def test_data_status(tiny_store):
     result = await call("controls_data_status")
     assert [d["release"] for d in result["datasets"]] == ["5.2.0", "5.1.1"]
-    assert result["datasets"][0]["controls_and_enhancements"] == 4
+    assert result["datasets"][0]["controls_and_enhancements"] == 5
     assert len(result["sources"]) == 8
     pinned = [s for s in result["sources"] if s["pin"]]
     assert all(len(s["pin"]) == 40 for s in pinned)
@@ -202,3 +203,99 @@ async def test_baseline_membership(tiny_store):
     ]
     with pytest.raises(ToolError, match="more than once"):
         await call("controls_baseline_membership", control_ids=["AC-2", "ac-02"])
+
+
+async def test_diff_releases_catalog_and_family(tiny_store):
+    result = await call("controls_diff_releases")
+    assert result["from_release"] == "5.1.1" and result["to_release"] == "5.2.0"
+    assert result["summary"] == {
+        "added": 1,
+        "removed": 0,
+        "changed": 1,
+        "unchanged": 3,
+        "changed_by_section": {
+            "statement": 1,
+            "discussion": 1,
+            "parameters": 1,
+            "relations": 1,
+        },
+    }
+    assert result["added"] == [
+        {
+            "id": "AC-25",
+            "title": "REFERENCE MONITOR",
+            "parent_id": None,
+            "withdrawn": False,
+        }
+    ]
+    assert result["changed"]["items"][0]["id"] == "AC-2"
+    assert result["changed"]["has_more"] is False
+    assert result["provenance"]["from"]["source"]["key"] == "sp800_53_5_1_1"
+    assert result["provenance"]["to"]["source"]["key"] == "sp800_53_5_2_0"
+
+    result = await call("controls_diff_releases", family="au")
+    assert result["scope"]["family"] == "AU"
+    assert result["summary"]["added"] == 0 and result["summary"]["changed"] == 0
+    assert result["summary"]["unchanged"] == 1
+
+    result = await call("controls_diff_releases", pagination={"limit": 1, "offset": 1})
+    assert result["changed"]["count"] == 0 and result["changed"]["total"] == 1
+
+
+async def test_diff_releases_one_control(tiny_store):
+    result = await call("controls_diff_releases", control_id="ac-02")
+    assert result["status"] == "changed"
+    assert result["changed_sections"] == [
+        "statement",
+        "discussion",
+        "parameters",
+        "relations",
+    ]
+    changes = result["changes"]
+    assert changes["statement"]["changed"] == [
+        {
+            "id": "CST-AC-02-a",
+            "fields": {
+                "text": {
+                    "before": "Define account types;",
+                    "after": "Define and document account types;",
+                }
+            },
+        }
+    ]
+    assert changes["discussion"]["changes"] == [
+        {
+            "before": "First & second.\n\nThird.",
+            "after": "First & second.\n\nThird.\n\nFourth.",
+        }
+    ]
+    assert changes["parameters"]["changed"][0]["fields"]["label"] == {
+        "before": "prerequisites",
+        "after": "account prerequisites",
+    }
+    assert changes["relations"] == {"related": {"added": ["AC-25"], "removed": []}}
+    assert "controls_get_control" in result["notes"][0]
+    citations = result["provenance"]["citations"]
+    assert citations["from"]["text"].startswith("NIST SP 800-53 Rev. 5 release 5.1.1")
+    assert citations["to"]["url"].endswith("element=AC-02")
+
+    result = await call("controls_diff_releases", control_id="AC-25")
+    assert result["status"] == "added" and result["changes"] == {}
+    assert list(result["provenance"]["citations"]) == ["to"]
+
+    result = await call("controls_diff_releases", control_id="AU-6")
+    assert result["status"] == "unchanged"
+    assert "same in 5.1.1 and 5.2.0" in result["notes"][0]
+
+
+async def test_diff_releases_errors(tiny_store):
+    with pytest.raises(ToolError, match="not both"):
+        await call("controls_diff_releases", control_id="AC-2", family="AC")
+    with pytest.raises(ToolError, match="both 5.2.0"):
+        await call("controls_diff_releases", from_release="5.2.0")
+    with pytest.raises(ToolError, match="Swap them"):
+        await call("controls_diff_releases", from_release="5.2.0", to_release="5.1.1")
+    with pytest.raises(ToolError, match="controls_search"):
+        await call("controls_diff_releases", control_id="AC-99")
+    with pytest.raises(ToolError, match="not an SP 800-53 family"):
+        await call("controls_diff_releases", family="ZZ")

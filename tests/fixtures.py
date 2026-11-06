@@ -3,6 +3,10 @@
 Shared by the store and tool tests so both run offline against the same
 small catalog: AC-2 with two items, one objective and one parameter, a
 withdrawn enhancement AC-2(10), a withdrawn control AC-13, and AU-6.
+
+The export comes in two flavors so the release comparison has something to
+find. The newer flavor rewords AC-2 item a, renames its parameter, adds a
+discussion paragraph, and adds a control AC-25 that AC-2 relates to.
 """
 
 from __future__ import annotations
@@ -37,9 +41,15 @@ def edge(src: str, dst: str, kind: str = "projection") -> dict:
     }
 
 
-def tiny_export() -> dict:
+def tiny_export(newer: bool = False) -> dict:
     """AC family with AC-2 (two items, one objective, one parameter), a
-    withdrawn enhancement AC-2(10), and a withdrawn control AC-13."""
+    withdrawn enhancement AC-2(10), and a withdrawn control AC-13. With
+    newer=True, the changes described at the top of this file are applied."""
+    item_a = "Define and document account types;" if newer else "Define account types;"
+    odp_label = "account prerequisites" if newer else "prerequisites"
+    discussion = "<p>First &amp; second.</p><p>Third.</p>"
+    if newer:
+        discussion += "<p>Fourth.</p>"
     elements = [
         element("family", "AC", "ACCESS CONTROL"),
         element("family", "AU", "AUDIT AND ACCOUNTABILITY"),
@@ -47,14 +57,14 @@ def tiny_export() -> dict:
         element("sort", "S-AC-02", "00001.00002"),
         element("control_statement", "CST-AC-02"),
         element("control_statement", "CST-AC-02-b", "b", "Assign account managers;"),
-        element("control_statement", "CST-AC-02-a", "a", "Define account types;"),
+        element("control_statement", "CST-AC-02-a", "a", item_a),
         element(
             "determination",
             "DS-AC-02a.",
             "",
             "account types are <AC-02_ODP[01] x> defined;",
         ),
-        element("odp", "AC-02_ODP[01]", "prerequisites", "prerequisites are defined;"),
+        element("odp", "AC-02_ODP[01]", odp_label, "prerequisites are defined;"),
         element("odp_type", "single_entry", "Assignment"),
         element(
             "odp_statement",
@@ -62,7 +72,7 @@ def tiny_export() -> dict:
             "",
             "organization-defined prerequisites",
         ),
-        element("discussion", "D-AC-02", "", "<p>First &amp; second.</p><p>Third.</p>"),
+        element("discussion", "D-AC-02", "", discussion),
         element("examine", "E-AC-02", "", "[SELECT FROM: Access control policy]."),
         element(
             "reference",
@@ -118,6 +128,20 @@ def tiny_export() -> dict:
         edge("AU-06", "S-AU-06"),
         edge("AU-06", "CST-AU-06"),
     ]
+    if newer:
+        elements += [
+            element("control", "AC-25", "REFERENCE MONITOR"),
+            element("sort", "S-AC-25", "00001.00025"),
+            element(
+                "control_statement", "CST-AC-25", "", "Implement a reference monitor."
+            ),
+        ]
+        relationships += [
+            edge("AC", "AC-25"),
+            edge("AC-25", "S-AC-25"),
+            edge("AC-25", "CST-AC-25"),
+            edge("AC-02", "AC-25", "related"),
+        ]
     return {
         "response": {
             "requestType": "elements",
@@ -173,16 +197,17 @@ def tiny_baseline(level: str) -> dict:
 
 
 def write_raw_dir(tmp_path: Path) -> Path:
-    """A raw dir whose 800-53 files are the tiny export, whose baseline files
-    are tiny OSCAL catalogs, and whose other sources are empty JSON objects,
-    with a manifest that verifies."""
+    """A raw dir whose 800-53 files are the tiny export (the newer flavor for
+    5.2.0), whose baseline files are tiny OSCAL catalogs, and whose other
+    sources are empty JSON objects, with a manifest that verifies."""
     raw = tmp_path / "raw"
     raw.mkdir()
     entries = []
     for source in SOURCES:
         path = raw / source.filename
         if source.key.startswith("sp800_53"):
-            path.write_text(json.dumps(tiny_export()), encoding="utf-8")
+            newer = source.key == "sp800_53_5_2_0"
+            path.write_text(json.dumps(tiny_export(newer)), encoding="utf-8")
         elif source.key.startswith("baseline_"):
             level = source.key.removeprefix("baseline_")
             path.write_text(json.dumps(tiny_baseline(level)), encoding="utf-8")

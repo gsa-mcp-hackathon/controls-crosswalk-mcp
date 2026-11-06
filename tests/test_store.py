@@ -126,7 +126,7 @@ def test_build_and_open_store(tmp_path: Path):
     out = tmp_path / "store.sqlite"
     report = store.build(raw, out)
     assert report.path == out
-    assert report.counts["controls"] == 8  # four controls in each of two releases
+    assert report.counts["controls"] == 9  # four in 5.1.1, five in 5.2.0
     assert report.counts["baselines"] == 4
     assert report.counts["baseline_members"] == 6
     assert not out.with_suffix(".sqlite.part").exists()
@@ -148,7 +148,7 @@ def test_build_and_open_store(tmp_path: Path):
     assert ac2["assessment_methods"] == {
         "examine": "[SELECT FROM: Access control policy]."
     }
-    assert ac2["related"] == ["AU-6"]
+    assert ac2["related"] == ["AU-6", "AC-25"]
     assert ac2["enhancements"] == [
         {"id": "AC-2(10)", "title": "SHARED CREDENTIAL CHANGE", "withdrawn": True}
     ]
@@ -182,6 +182,20 @@ def test_build_and_open_store(tmp_path: Path):
     total, hits = s.search("account", "5.2.0")
     assert total == 1 and hits[0]["id"] == "AC-2"
     assert "[account]" in hits[0]["snippet"].lower()
+
+    # The bulk loader agrees with the single control lookup.
+    records = s.release_records("5.2.0")
+    assert set(records) == {"AC-2", "AC-2(10)", "AC-13", "AC-25", "AU-6"}
+    for key in ("statement", "parameters", "objectives", "related", "references"):
+        assert records["AC-2"][key] == ac2[key], key
+    catalog = s.catalog_diff("5.1.1", "5.2.0")
+    assert [c["id"] for c in catalog["added"]] == ["AC-25"]
+    assert catalog["removed"] == []
+    assert [(c["id"], c["changed_sections"]) for c in catalog["changed"]] == [
+        ("AC-2", ["statement", "discussion", "parameters", "relations"])
+    ]
+    assert catalog["unchanged"] == 3
+    assert s.catalog_diff("5.1.1", "5.2.0") is catalog  # cached
 
     # The connection is read only.
     with pytest.raises(sqlite3.OperationalError):
@@ -253,4 +267,18 @@ def test_real_store_has_known_facts():
     assert s.membership(["AC-2(3)"]) == {"AC-2(3)": ["moderate", "high"]}
     total, hits = s.search("cyber resiliency", "5.2.0")
     assert hits[0]["id"] == "SA-24"
+    catalog = s.catalog_diff("5.1.1", "5.2.0")
+    assert [c["id"] for c in catalog["added"]] == ["SA-15(13)", "SA-24", "SI-2(7)"]
+    assert catalog["removed"] == []
+    changed = {c["id"]: c["changed_sections"] for c in catalog["changed"]}
+    assert changed["SI-7(12)"] == [
+        "statement",
+        "discussion",
+        "parameters",
+        "objectives",
+        "assessment_methods",
+        "relations",
+    ]
+    assert changed["SA-4"] == ["discussion"]
+    assert "AC-2" not in changed
     s.close()
