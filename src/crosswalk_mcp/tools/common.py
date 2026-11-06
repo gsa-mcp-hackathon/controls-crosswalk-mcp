@@ -131,3 +131,37 @@ def cprt_citation(store: Store, release: str, cprt_id: str, title: str) -> dict:
             doc=release_row["doc_identifier"], element=cprt_id
         ),
     }
+
+
+def csf_citation(document: dict, record: dict) -> dict:
+    """Cite one CSF element on the CPRT catalog page. record needs kind,
+    id, and title; document is the store's csf_documents row."""
+    label = f"{record['kind']} {record['id']}"
+    if record["title"]:
+        label += f" {record['title']}"
+    return {
+        "text": f"NIST Cybersecurity Framework (CSF) 2.0, {label}",
+        "url": CPRT_ELEMENT_URL.format(
+            doc=document["doc_identifier"], element=record["id"]
+        ),
+    }
+
+
+def ksi_citation(document: dict, url: str, record: dict) -> dict:
+    """Cite a KSI theme or indicator by the pinned file and the JSON path of
+    the record inside it. record is a theme (short_name) or an indicator
+    (theme_id) row; document is the store's fedramp_documents row."""
+    if "theme_id" in record:
+        path = (
+            f"KSI.{record['theme_id'].removeprefix('KSI-')}.indicators.{record['id']}"
+        )
+    else:
+        path = f"KSI.{record['short_name']}"
+    return {
+        "text": (
+            f"{document['title']}, version {document['version']}, "
+            f"{record['id']} {record['name']}"
+        ),
+        "url": url,
+        "json_path": path,
+    }

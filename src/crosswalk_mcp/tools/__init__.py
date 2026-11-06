@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from crosswalk_mcp.tools import (
     baselines,
+    crosswalk,
     data_status,
     diff_releases,
     get_control,
@@ -26,6 +27,7 @@ def register_tools(mcp) -> None:
     diff_releases.register(mcp)
     get_csf_element.register(mcp)
     get_ksi.register(mcp)
+    crosswalk.register(mcp)
     data_status.register(mcp)
 
 

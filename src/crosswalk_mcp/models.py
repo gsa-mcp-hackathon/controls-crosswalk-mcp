@@ -41,6 +41,15 @@ class Section(str, Enum):
     REFERENCES = "references"
     RELATIONS = "relations"
     ENHANCEMENTS = "enhancements"
+    FEDRAMP = "fedramp"
+
+
+class Framework(str, Enum):
+    """Frameworks the crosswalk tool can start from or arrive at."""
+
+    SP800_53 = "sp800_53"
+    CSF = "csf"
+    KSI = "ksi"
 
 
 class PaginationParams(BaseModel):

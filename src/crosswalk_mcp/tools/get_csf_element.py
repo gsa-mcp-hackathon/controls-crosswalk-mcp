@@ -16,7 +16,7 @@ from pydantic import Field
 from crosswalk_mcp.ids import InvalidIdentifier, normalize_csf_id
 from crosswalk_mcp.store import CSF_SOURCE, Store
 from crosswalk_mcp.tools.common import (
-    CPRT_ELEMENT_URL,
+    csf_citation,
     get_store,
     snapshot_provenance,
     source_record,
@@ -149,7 +149,7 @@ def register(mcp: FastMCP) -> None:
                     "version": document["version"],
                     "url": document["website"],
                 },
-                "citation": _citation(document, record),
+                "citation": csf_citation(document, record),
             },
         }
 
@@ -239,15 +239,3 @@ def _references(store: Store, record: dict) -> tuple[dict, list[str]]:
                 "between the releases."
             )
     return result, notes
-
-
-def _citation(document: dict, record: dict) -> dict:
-    label = f"{record['kind']} {record['id']}"
-    if record["title"]:
-        label += f" {record['title']}"
-    return {
-        "text": f"NIST Cybersecurity Framework (CSF) 2.0, {label}",
-        "url": CPRT_ELEMENT_URL.format(
-            doc=document["doc_identifier"], element=record["id"]
-        ),
-    }

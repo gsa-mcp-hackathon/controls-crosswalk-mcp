@@ -28,6 +28,7 @@ SECTION_KEYS: dict[Section, tuple[str, ...]] = {
     Section.REFERENCES: ("references",),
     Section.RELATIONS: ("related", "incorporated_into", "moved_to"),
     Section.ENHANCEMENTS: ("enhancements",),
+    Section.FEDRAMP: ("fedramp_ksis", "fedramp_guidance"),
 }
 
 
@@ -79,6 +80,10 @@ def register(mcp: FastMCP) -> None:
         flags, and withdrawal details. Text is exactly as NIST publishes it
         in CPRT; this tool never judges whether a requirement is met.
 
+        The fedramp section lists the FedRAMP Key Security Indicators that
+        name this control as a related control, and any FedRAMP guidance or
+        parameter values for it, as published in the consolidated rules.
+
         Data is a fixed snapshot. The `provenance` block names the snapshot
         hash, the source file, and a citation URL on csrc.nist.gov.
         """
@@ -89,6 +94,13 @@ def register(mcp: FastMCP) -> None:
             record = store.get_control(wanted, release_key)
             if record is None:
                 raise ToolError(_not_found_message(store, wanted, release_key))
+            # FedRAMP links are published without a catalog release, so they
+            # are attached to the control under every release.
+            record["fedramp_ksis"] = [
+                {"id": row["id"], "name": row["name"], "theme_id": row["theme_id"]}
+                for row in store.ksis_for_controls([wanted])
+            ]
+            record["fedramp_guidance"] = store.fedramp_guidance(wanted)
 
         if sections:
             keep = {key for section in sections for key in SECTION_KEYS[section]}

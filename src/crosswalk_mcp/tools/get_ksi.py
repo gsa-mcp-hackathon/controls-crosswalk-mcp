@@ -18,7 +18,12 @@ from pydantic import Field
 from crosswalk_mcp.ids import InvalidIdentifier, normalize_ksi_id
 from crosswalk_mcp.models import LATEST_RELEASE
 from crosswalk_mcp.store import FEDRAMP_SOURCE, Store
-from crosswalk_mcp.tools.common import get_store, snapshot_provenance, source_record
+from crosswalk_mcp.tools.common import (
+    get_store,
+    ksi_citation,
+    snapshot_provenance,
+    source_record,
+)
 
 RELATED_NOTE = (
     "FedRAMP calls this list 'Related SP 800-53 Controls'. It is published "
@@ -135,7 +140,7 @@ def _theme_view(store: Store, theme_id: str, document: dict, provenance: dict):
         ],
         "provenance": {
             **provenance,
-            "citation": _citation(document, provenance["source"]["url"], theme),
+            "citation": ksi_citation(document, provenance["source"]["url"], theme),
         },
     }
 
@@ -229,24 +234,6 @@ def _indicator_view(store: Store, indicator_id: str, document: dict, provenance)
         "notes": notes,
         "provenance": {
             **provenance,
-            "citation": _citation(document, provenance["source"]["url"], record),
+            "citation": ksi_citation(document, provenance["source"]["url"], record),
         },
-    }
-
-
-def _citation(document: dict, url: str, record: dict) -> dict:
-    """Cite the pinned file and the JSON path of the record inside it."""
-    if "theme_id" in record:
-        path = (
-            f"KSI.{record['theme_id'].removeprefix('KSI-')}.indicators.{record['id']}"
-        )
-    else:
-        path = f"KSI.{record['short_name']}"
-    return {
-        "text": (
-            f"{document['title']}, version {document['version']}, "
-            f"{record['id']} {record['name']}"
-        ),
-        "url": url,
-        "json_path": path,
     }

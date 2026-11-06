@@ -924,6 +924,80 @@ class Store:
         ]
         return result
 
+    def control_briefs(self, control_ids: list[str], release: str) -> dict[str, dict]:
+        """Short records for the given controls, keyed by id. Ids the release
+        does not have are left out."""
+        if not control_ids:
+            return {}
+        marks = ", ".join("?" for _ in control_ids)
+        rows = self.conn.execute(
+            "SELECT id, cprt_id, family, title, withdrawn FROM controls "
+            f"WHERE release = ? AND id IN ({marks})",
+            [release, *control_ids],
+        ).fetchall()
+        return {
+            row["id"]: {**dict(row), "withdrawn": bool(row["withdrawn"])}
+            for row in rows
+        }
+
+    def controls_in_family(self, family: str, release: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, cprt_id, family, title, withdrawn FROM controls "
+            "WHERE release = ? AND family = ? ORDER BY sort_key",
+            (release, family),
+        ).fetchall()
+        return [{**dict(row), "withdrawn": bool(row["withdrawn"])} for row in rows]
+
+    def csf_elements_for_families(self, families: list[str]) -> list[dict]:
+        """CSF elements whose published references name any of the given
+        SP 800-53 families, one row per element and family."""
+        if not families:
+            return []
+        marks = ", ".join("?" for _ in families)
+        rows = self.conn.execute(
+            "SELECT e.id, e.kind, e.title, e.text, e.legacy, "
+            "r.target_id AS family, r.target_doc "
+            "FROM csf_references r JOIN csf_elements e ON e.id = r.element_id "
+            f"WHERE r.target_id IN ({marks}) ORDER BY e.sort_key, r.target_id",
+            families,
+        ).fetchall()
+        return [{**dict(row), "legacy": bool(row["legacy"])} for row in rows]
+
+    def ksis_for_controls(self, control_ids: list[str]) -> list[dict]:
+        """Indicators that list any of the given controls, one row per
+        indicator and control, in the file's theme and indicator order."""
+        if not control_ids:
+            return []
+        marks = ", ".join("?" for _ in control_ids)
+        rows = self.conn.execute(
+            "SELECT i.id, i.name, i.theme_id, c.control_id, c.oscal_id "
+            "FROM fedramp_indicator_controls c "
+            "JOIN fedramp_indicators i ON i.id = c.indicator_id "
+            "JOIN fedramp_themes t ON t.id = i.theme_id "
+            f"WHERE c.control_id IN ({marks}) "
+            "ORDER BY t.position, i.position, c.position",
+            control_ids,
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def fedramp_guidance(self, control_id: str) -> list[dict]:
+        """FedRAMP guidance and parameter values for one control, one entry
+        per authorization class (class None applies to every class)."""
+        rows = self.conn.execute(
+            "SELECT class, guidance, parameters, updated "
+            "FROM fedramp_control_guidance WHERE control_id = ? ORDER BY rowid",
+            (control_id,),
+        ).fetchall()
+        return [
+            {
+                "class": row["class"],
+                "guidance": json.loads(row["guidance"]),
+                "parameters": json.loads(row["parameters"]),
+                "updated": json.loads(row["updated"]),
+            }
+            for row in rows
+        ]
+
     def baselines(self) -> list[dict]:
         rows = self.conn.execute(
             "SELECT b.*, (SELECT count(*) FROM baseline_members m "
