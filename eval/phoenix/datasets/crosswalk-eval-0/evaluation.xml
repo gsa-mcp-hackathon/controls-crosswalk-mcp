@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Gold questions for the Controls Crosswalk MCP.
+
+  Every answer was verified against the snapshot recorded in
+  data/raw/manifest.json by solving the question with the server's tools
+  (see eval/gold_check.py, which re-verifies them without a model). Answers
+  are stable because the sources are pinned: SP 800-53 releases 5.1.1 and
+  5.2.0, CSF 2.0, the 800-53B baselines at one oscal-content commit, and the
+  FedRAMP rules at one commit.
+
+  Questions 1 to 9 are answerable. Questions 10 and 11 have a correct answer
+  of "the source does not say", which the server must report rather than
+  guess. Question 12 is out of scope and the right response is a refusal.
+-->
+<evaluation>
+  <qa_pair>
+    <question>Between SP 800-53 releases 5.1.1 and 5.2.0, exactly one control or enhancement had the wording of its requirement statement changed, as opposed to its discussion, references, or related control links. Give its identifier in the form XX-N(M).</question>
+    <answer>SI-7(12)</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>How many SP 800-53 controls or enhancements exist in release 5.2.0 that did not exist in release 5.1.1? Answer with a number only.</question>
+    <answer>3</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Among the SP 800-53 controls and enhancements that are new in release 5.2.0, exactly one is a base control rather than an enhancement of an existing control. What is its title, exactly as NIST publishes it?</question>
+    <answer>DESIGN FOR CYBER RESILIENCY</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>NIST publishes one SP 800-53 family as the informative reference for the CSF 2.0 subcategory that covers managing identities and credentials for authorized users, services, and hardware. Give the two-letter family identifier only.</question>
+    <answer>IA</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>FedRAMP publishes a Key Security Indicator about persistently reviewing the effectiveness of cybersecurity education and training. How many related SP 800-53 controls does FedRAMP list for it? Answer with a number only.</question>
+    <answer>19</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Take the FedRAMP Key Security Indicator about persistently reviewing the effectiveness of cybersecurity education and training. Of the SP 800-53 controls FedRAMP relates to it, how many are selected by the SP 800-53B low baseline? Answer with a number only.</question>
+    <answer>11</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Two retired CSF 1.1 subcategories were incorporated into the CSF 2.0 subcategory which states that the organizational mission is understood and informs cybersecurity risk management. Of those two retired identifiers, give the one with the higher number.</question>
+    <answer>ID.BE-03</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Exactly one FedRAMP Key Security Indicator lists no related SP 800-53 controls at all. Give its identifier in the form KSI-XXX-YYY.</question>
+    <answer>KSI-PIY-RES</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Consider the SP 800-53 controls and enhancements whose only change between release 5.1.1 and release 5.2.0 was to their discussion text, with no change to statements, parameters, objectives, assessment methods, references, or related controls. How many of them are selected by the SP 800-53B high baseline? Answer with a number only.</question>
+    <answer>2</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which single SP 800-53 control does NIST publish as the informative reference for CSF 2.0 subcategory PR.AA-01? Give the control identifier, or answer exactly "none published" if the published source gives no control-level reference.</question>
+    <answer>none published</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which SP 800-53 release do FedRAMP's Key Security Indicator related-control lists name as their target? Answer with the release number, or exactly "unspecified" if the published source names none.</question>
+    <answer>unspecified</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What is the CVSS base score of CVE-2024-3094, the xz utils backdoor? Answer with the number only.</question>
+    <answer>out of scope: this server holds no vulnerability data and the agent should say it cannot answer</answer>
+  </qa_pair>
+</evaluation>

@@ -31,11 +31,28 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "ruff>=0.6.0",
 ]
+# The Phoenix evaluation harness in eval/phoenix. Kept out of dev so CI and
+# a plain checkout stay small. Install with `uv sync --group eval`. The
+# harness bridges MCP tools into LangChain itself (eval/phoenix/mcp_tools.py)
+# because langchain-mcp-adapters pins mcp below 2.0 while FastMCP 4 needs 2.x.
+eval = [
+    "arize-phoenix>=18.0.0",
+    "arize-phoenix-client>=2.13.0",
+    "arize-phoenix-evals>=3.1.1",
+    "langchain>=1.3.14",
+    "langchain-openai>=1.3.5",
+    "openinference-instrumentation-langchain>=0.1.67",
+    "opentelemetry-exporter-otlp>=1.43.0",
+    "opentelemetry-sdk>=1.43.0",
+    "pandas>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
+]
 
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-exclude = [".venv", ".agents"]
+exclude = [".venv", ".agents", "eval/databricks"]
 # Don't reformat Python code fences inside Markdown docs (they're illustrative
 # snippets, not runnable modules).
 extend-exclude = ["*.md"]

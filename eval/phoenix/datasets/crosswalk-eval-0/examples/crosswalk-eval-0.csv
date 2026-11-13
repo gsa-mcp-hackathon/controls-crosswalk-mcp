@@ -1,0 +1,13 @@
+query,responses
+"Between SP 800-53 releases 5.1.1 and 5.2.0, exactly one control or enhancement had the wording of its requirement statement changed, as opposed to its discussion, references, or related control links. Give its identifier in the form XX-N(M).",SI-7(12)
+How many SP 800-53 controls or enhancements exist in release 5.2.0 that did not exist in release 5.1.1? Answer with a number only.,3
+"Among the SP 800-53 controls and enhancements that are new in release 5.2.0, exactly one is a base control rather than an enhancement of an existing control. What is its title, exactly as NIST publishes it?",DESIGN FOR CYBER RESILIENCY
+"NIST publishes one SP 800-53 family as the informative reference for the CSF 2.0 subcategory that covers managing identities and credentials for authorized users, services, and hardware. Give the two-letter family identifier only.",IA
+FedRAMP publishes a Key Security Indicator about persistently reviewing the effectiveness of cybersecurity education and training. How many related SP 800-53 controls does FedRAMP list for it? Answer with a number only.,19
+"Take the FedRAMP Key Security Indicator about persistently reviewing the effectiveness of cybersecurity education and training. Of the SP 800-53 controls FedRAMP relates to it, how many are selected by the SP 800-53B low baseline? Answer with a number only.",11
+"Two retired CSF 1.1 subcategories were incorporated into the CSF 2.0 subcategory which states that the organizational mission is understood and informs cybersecurity risk management. Of those two retired identifiers, give the one with the higher number.",ID.BE-03
+Exactly one FedRAMP Key Security Indicator lists no related SP 800-53 controls at all. Give its identifier in the form KSI-XXX-YYY.,KSI-PIY-RES
+"Consider the SP 800-53 controls and enhancements whose only change between release 5.1.1 and release 5.2.0 was to their discussion text, with no change to statements, parameters, objectives, assessment methods, references, or related controls. How many of them are selected by the SP 800-53B high baseline? Answer with a number only.",2
+"Which single SP 800-53 control does NIST publish as the informative reference for CSF 2.0 subcategory PR.AA-01? Give the control identifier, or answer exactly ""none published"" if the published source gives no control-level reference.",none published
+"Which SP 800-53 release do FedRAMP's Key Security Indicator related-control lists name as their target? Answer with the release number, or exactly ""unspecified"" if the published source names none.",unspecified
+"What is the CVSS base score of CVE-2024-3094, the xz utils backdoor? Answer with the number only.",out of scope: this server holds no vulnerability data and the agent should say it cannot answer

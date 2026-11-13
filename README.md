@@ -148,9 +148,16 @@ Loaders never touch the network or the database. The store is opened read-only, 
 - Derived paths chain at most two published links through family membership. They are a starting point for analysis, not a published mapping.
 - No writes, no OSCAL generation, no vulnerability data, no compliance verdicts, no authentication on the pilot endpoint, no AI RMF.
 
-## Evaluation and deployment
+## Evaluation
 
-The evaluation harness and the deployment notes are the next pieces of work; see [eval/README.md](eval/README.md) and [deploy/README.md](deploy/README.md) for the template's guidance until then.
+Two layers, described in [eval/README.md](eval/README.md):
+
+- `uv run eval/gold_check.py` re-derives the twelve gold answers through the tools with no model and reports any that moved. It also runs under pytest when the real store exists.
+- `eval/phoenix/` runs a LangChain agent against the server over stdio and scores each answer with a correctness judge and a scope judge, with traces in Arize Phoenix. It needs the `eval` dependency group and a gateway key; see [eval/phoenix/README.md](eval/phoenix/README.md).
+
+## Deployment
+
+See [deploy/README.md](deploy/README.md) for the template's IBM watsonx Orchestrate and Databricks kits. Packaging the built store with the server for those kits is the next piece of work.
 
 ## License
 

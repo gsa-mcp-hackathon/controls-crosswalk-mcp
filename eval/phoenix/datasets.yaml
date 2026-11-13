@@ -1,0 +1,10 @@
+# Dataset registry for the Phoenix harness. Paths are relative to this file.
+# Regenerate a CSV from its evaluation.xml with build_dataset.py.
+datasets:
+  crosswalk-eval-0:
+    csv_path: datasets/crosswalk-eval-0/examples/crosswalk-eval-0.csv
+    input_keys:
+      - query
+    output_keys:
+      - responses
+    description: "12 gold questions: 9 answerable, 2 where the source does not say, 1 out of scope"
