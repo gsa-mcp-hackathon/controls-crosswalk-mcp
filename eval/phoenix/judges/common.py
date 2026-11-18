@@ -1,36 +1,35 @@
 """The judge model, shared by both judges.
 
 Judges use JUDGE_MODEL, which should differ from AGENT_MODEL so the agent
-is not grading itself. Both go through the same gateway as the agent.
+is not grading itself.
 """
 
 from __future__ import annotations
 
-import os
-
-from dotenv import load_dotenv
+from model_env import judge_temperature, load_model_env, model_name, provider
 from phoenix.evals import LLM
 
 
 def judge_llm() -> LLM:
-    load_dotenv()
-    base_url = os.environ.get("USAI_BASE_URL")
-    api_key = os.environ.get("USAI_API_KEY")
-    if not base_url or not api_key:
-        raise RuntimeError("Set USAI_BASE_URL and USAI_API_KEY in the root .env file.")
-    model = os.environ.get("JUDGE_MODEL", "USAI_claude_4_5_opus")
-    # Phoenix's LLM wrapper drives the OpenAI SDK; base_url and api_key are
-    # passed through to it so the gateway is used instead of api.openai.com.
-    # Extra keyword arguments go to the SDK client, not to each request, so
-    # temperature is left at the model default; the classification prompt
-    # asks for a single word, which keeps judgments stable.
-    return LLM(
-        provider="openai",
-        model=model,
-        client="openai",
-        sync_client_kwargs={"base_url": base_url, "api_key": api_key},
-        async_client_kwargs={"base_url": base_url, "api_key": api_key},
-    )
+    """Phoenix's LLM wrapper for the chosen provider. Keys and endpoints
+    are read from the environment by the SDK underneath.
+
+    OpenAI goes through the OpenAI SDK. watsonx.ai goes through LiteLLM,
+    which expects the model id with a "watsonx/" prefix:
+    https://docs.litellm.ai/docs/providers/watsonx
+    """
+    load_model_env()
+    model = model_name("JUDGE_MODEL")
+    if provider() == "watsonx":
+        return LLM(provider="litellm", model=f"watsonx/{model}")
+    return LLM(provider="openai", model=model, client="openai")
+
+
+def judge_settings() -> dict[str, float]:
+    """Per-request settings for a judge call. Passed to the evaluator, which
+    forwards them with every request."""
+    load_model_env()
+    return judge_temperature(model_name("JUDGE_MODEL"))
 
 
 def text_of(value) -> str:

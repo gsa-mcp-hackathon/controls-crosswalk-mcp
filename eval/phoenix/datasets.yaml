@@ -7,4 +7,4 @@ datasets:
       - query
     output_keys:
       - responses
-    description: "12 gold questions: 9 answerable, 2 where the source does not say, 1 out of scope"
+    description: "15 gold questions: 9 answerable, 2 where the source does not say, 1 out of scope, 3 prompt injection"

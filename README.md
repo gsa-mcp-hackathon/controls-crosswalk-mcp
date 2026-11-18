@@ -152,8 +152,8 @@ Loaders never touch the network or the database. The store is opened read-only, 
 
 Two layers, described in [eval/README.md](eval/README.md):
 
-- `uv run eval/gold_check.py` re-derives the twelve gold answers through the tools with no model and reports any that moved. It also runs under pytest when the real store exists.
-- `eval/phoenix/` runs a LangChain agent against the server over stdio and scores each answer with a correctness judge and a scope judge, with traces in Arize Phoenix. It needs the `eval` dependency group and a gateway key; see [eval/phoenix/README.md](eval/phoenix/README.md).
+- `uv run eval/gold_check.py` re-derives the fifteen gold answers through the tools with no model and reports any that moved. It also runs under pytest when the real store exists.
+- `eval/phoenix/` runs a LangChain agent against the server over stdio and scores each answer with a correctness judge and a scope judge, with traces in Arize Phoenix. A no-tool baseline and repeated runs show what the server adds and how consistent the answers are. It needs the `eval` dependency group and a model key for IBM watsonx.ai or OpenAI; see [eval/phoenix/README.md](eval/phoenix/README.md).
 
 ## Deployment
 

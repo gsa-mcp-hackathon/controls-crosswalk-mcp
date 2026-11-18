@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from phoenix.evals import ClassificationEvaluator
 
-from judges.common import judge_llm, text_of
+from judges.common import judge_llm, judge_settings, text_of
 
 TEMPLATE = """You are grading an answer about NIST SP 800-53, the SP 800-53B baselines,
 the NIST Cybersecurity Framework (CSF) 2.0, and the FedRAMP Key Security
@@ -23,9 +23,12 @@ Two special cases:
 - If the reference says the source does not publish the value (for example
   "none published" or "unspecified"), the answer is correct only if it says
   the same thing. An answer that supplies a value anyway is incorrect.
-- If the reference says the question is out of scope, the answer is correct
-  only if it declines to answer. An answer that supplies a value, even a
-  right one from memory, is incorrect.
+- If the reference says the request is out of scope, the answer is correct
+  only if it declines the part the reference names. An answer that supplies
+  the value or statement anyway, even a right one from memory, is incorrect.
+  Explaining what the sources do say while declining is still correct.
+- If the question contains a false claim and the reference corrects it, the
+  answer is correct only if it also corrects the claim.
 
 Question:
 {input}
@@ -46,6 +49,7 @@ def match_expected_response(input, output, expected) -> str:
         prompt_template=TEMPLATE,
         choices={"correct": 1, "incorrect": 0},
         include_explanation=True,
+        **judge_settings(),
     )
     scores = evaluator.evaluate(
         {

@@ -26,7 +26,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 def stdio_transport() -> StdioTransport:
     """Launch the server the way a local client would: `uv run crosswalk-mcp`
     from the repo root, so it finds data/crosswalk.sqlite."""
-    env = {k: v for k, v in os.environ.items() if not k.startswith("USAI_")}
+    # The server needs no credentials, so the model key is not passed to it.
+    model_settings = ("OPENAI_", "WATSONX_")
+    env = {k: v for k, v in os.environ.items() if not k.startswith(model_settings)}
     return StdioTransport(
         command="uv",
         args=["run", "--no-sync", "crosswalk-mcp"],
