@@ -98,6 +98,36 @@ def test_verify_detects_tampering(tmp_path, monkeypatch):
     assert snapshot.verify(tmp_path) == ["demo: file missing (demo.json)"]
 
 
+def test_fetch_refuses_a_cached_file_that_changed(tmp_path, monkeypatch):
+    """A plain fetch must not write a new manifest around a changed file."""
+    monkeypatch.setattr(snapshot, "SOURCES", (_source(),))
+    client = _client(lambda request: httpx.Response(200, content=b'{"v": 1}'))
+    snapshot.fetch_all(tmp_path, client=client)
+    recorded = snapshot.read_manifest(tmp_path)
+
+    (tmp_path / "demo.json").write_bytes(b'{"v": 2}')
+    with pytest.raises(snapshot.SnapshotError, match="does not match the manifest"):
+        snapshot.fetch_all(tmp_path, client=client)
+    assert snapshot.read_manifest(tmp_path) == recorded
+    assert snapshot.verify(tmp_path) == ["demo: sha256 mismatch"]
+
+    # Downloading the file again is the way out.
+    snapshot.fetch_all(tmp_path, client=client, force=True)
+    assert snapshot.verify(tmp_path) == []
+
+
+def test_fetch_reports_when_the_publisher_changed_a_file(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(snapshot, "SOURCES", (_source(),))
+    old = _client(lambda request: httpx.Response(200, content=b'{"v": 1}'))
+    snapshot.fetch_all(tmp_path, client=old)
+    assert "snapshot changed" not in capsys.readouterr().err
+
+    new = _client(lambda request: httpx.Response(200, content=b'{"v": 2}'))
+    snapshot.fetch_all(tmp_path, client=new, force=True)
+    assert "snapshot changed" in capsys.readouterr().err
+    assert snapshot.verify(tmp_path) == []
+
+
 def test_verify_reports_sources_missing_from_manifest(tmp_path):
     snapshot.write_manifest([], tmp_path)
     problems = snapshot.verify(tmp_path)

@@ -1,8 +1,10 @@
 # Controls Crosswalk MCP
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io) server over NIST SP 800-53, the SP 800-53B baselines, the Cybersecurity Framework (CSF) 2.0, and the FedRAMP Key Security Indicators (KSIs). It helps security teams explain what changed between SP 800-53 releases, trace the relationships these frameworks publish between each other, and retrieve assessment guidance, with every answer tied to its source file, release, and citation.
+A read-only Model Context Protocol server over NIST SP 800-53, the SP 800-53B baselines, the Cybersecurity Framework (CSF) 2.0, and the FedRAMP Key Security Indicators (KSIs). It helps security teams explain what changed between SP 800-53 releases, trace the relationships these frameworks publish between each other, and retrieve assessment guidance, with every answer tied to its source file, release, and citation.
 
-Built for the 2026 GSA MCP Server and AI Agent Government Hackathon on the [GSA FastMCP template](https://github.com/GSA-TTS/mcp-hackathon-template). Unofficial: not affiliated with or endorsed by NIST, GSA, or FedRAMP.
+Built for the 2026 GSA MCP Server Hackathon.
+
+Unofficial: not affiliated with or endorsed by NIST, GSA, or FedRAMP.
 
 ## What it answers
 
@@ -22,7 +24,7 @@ All data is public. GitHub sources are pinned to a commit. CPRT exports cannot b
 |---|---|---|---|
 | SP 800-53 Rev. 5, releases 5.1.1 and 5.2.0, with SP 800-53A assessment procedures | NIST | [CPRT](https://csrc.nist.gov/projects/cprt) JSON export | Both full catalogs are stored, so any control can be read in either release |
 | SP 800-53B baselines (low, moderate, high, privacy) | NIST | [usnistgov/oscal-content](https://github.com/usnistgov/oscal-content), resolved profile catalogs | Pinned commit |
-| CSF 2.0 core with informative references | NIST | CPRT JSON export | References to SP 800-53 are published at the family level and target release 5.1.1 |
+| CSF 2.0 core with informative references | NIST | CPRT JSON export | This export gives its references to SP 800-53 at the family level, and they target release 5.1.1 |
 | FedRAMP Consolidated Rules (KSIs, definitions, control guidance) | FedRAMP | [FedRAMP/rules](https://github.com/FedRAMP/rules) | Pinned commit. Control links are published without naming an SP 800-53 release |
 
 The exact URLs live in `src/crosswalk_mcp/sources.py`. The manifest of fetched files is committed at `data/raw/manifest.json`; the files themselves and the built SQLite store are not.
@@ -81,7 +83,7 @@ uv run python -m crosswalk_mcp.store build
 uv run python -m crosswalk_mcp.store status
 ```
 
-If `fetch` reports a hash that differs from the committed manifest, NIST or FedRAMP republished a file. The server still works on the new snapshot; the difference is simply visible in every result's provenance. To verify the files you have against the manifest, run `uv run python -m crosswalk_mcp.snapshot verify`.
+If a downloaded file differs from the committed manifest, NIST or FedRAMP republished it. `fetch` says so, writes the new manifest, and the server works on the new snapshot; the difference is visible in every result's provenance and in the manifest diff. A file already on disk is different: if it no longer matches the manifest, `fetch` stops and does not write a new manifest. Download that file again with `fetch --force --only <source>`. To check the files you have against the manifest, run `uv run python -m crosswalk_mcp.snapshot verify`.
 
 On a laptop with TLS interception, set `SSL_CERT_FILE` to your CA bundle before running `fetch`. The fetch honors proxy and certificate environment variables; the server itself never makes network calls.
 
@@ -110,7 +112,7 @@ MCP_TRANSPORT=streamable-http uv run python main.py
 curl http://localhost:8000/health
 ```
 
-The MCP endpoint is `/mcp`. The server also switches to HTTP on its own when a platform sets `PORT` or `DATABRICKS_APP_PORT`. See [deploy/README.md](deploy/README.md) for the IBM watsonx Orchestrate and Databricks kits from the template.
+The MCP endpoint is `/mcp`. `/health` returns 503 until the store has been built, because no data tool can answer without it. The server also switches to HTTP on its own when a platform sets `PORT` or `DATABRICKS_APP_PORT`. See [deploy/README.md](deploy/README.md) for the IBM watsonx Orchestrate and Databricks kits from the template.
 
 ## Verify
 
@@ -143,14 +145,16 @@ Loaders never touch the network or the database. The store is opened read-only, 
 
 ## Scope and limits
 
-- The CSF to SP 800-53 mapping NIST publishes in CPRT names families, not controls. The server returns it that way and says so. Control-level crosswalks from CSF are always labeled derived.
+- The CSF to SP 800-53 mapping in NIST's CPRT export names families, not controls. The server returns it that way and says so. NIST publishes control-level mappings in a separate [informative reference catalog](https://www.nist.gov/cyberframework/csf-20-informative-references), which this server does not hold. Control-level crosswalks from CSF are always labeled derived.
+- A `controls_get_control` result that includes FedRAMP content names the FedRAMP file in `provenance.fedramp`, beside the NIST source.
 - FedRAMP's related control lists name no SP 800-53 release. The server resolves titles and baselines against 5.2.0 and labels the release as unspecified.
 - Derived paths chain at most two published links through family membership. They are a starting point for analysis, not a published mapping.
 - No writes, no OSCAL generation, no vulnerability data, no compliance verdicts, no authentication on the pilot endpoint, no AI RMF.
+- The `Dockerfile` from the template installs the server but not the data. Build the store and mount or copy it to the image's data directory before use. The tested path for this submission is the local stdio server.
 
 ## Evaluation
 
-Two layers, described in [eval/README.md](eval/README.md):
+The results are in [eval/EVALUATION.md](eval/EVALUATION.md), and the raw runs behind them are in [eval/results/2026-11-20](eval/results/2026-11-20/README.md). Two layers, described in [eval/README.md](eval/README.md):
 
 - `uv run eval/gold_check.py` re-derives the fifteen gold answers through the tools with no model and reports any that moved. It also runs under pytest when the real store exists.
 - `eval/phoenix/` runs a LangChain agent against the server over stdio and scores each answer with a correctness judge and a scope judge, with traces in Arize Phoenix. A no-tool baseline and repeated runs show what the server adds and how consistent the answers are. It needs the `eval` dependency group and a model key for IBM watsonx.ai or OpenAI; see [eval/phoenix/README.md](eval/phoenix/README.md).

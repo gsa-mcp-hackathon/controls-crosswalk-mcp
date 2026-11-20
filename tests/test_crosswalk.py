@@ -224,6 +224,57 @@ async def test_get_control_fedramp_section(tiny_store):
         "controls_get_control", control_id="AC-25", sections=["statement"]
     )
     assert "fedramp_ksis" not in result["control"]
+    assert "fedramp" not in result["provenance"]
+
+
+async def test_get_control_cites_fedramp_for_fedramp_content(tiny_store):
+    """FedRAMP guidance and KSI links are FedRAMP's, so the result has to
+    name the FedRAMP file, not only the NIST one."""
+    result = await call("controls_get_control", control_id="AC-2")
+    provenance = result["provenance"]
+    assert provenance["source"]["key"] == "sp800_53_5_2_0"
+    fedramp = provenance["fedramp"]
+    assert fedramp["source"]["key"] == "fedramp_rules"
+    assert fedramp["source"]["publisher"] == "FedRAMP"
+    assert fedramp["document"]["version"] == "2026.01.01.01"
+    assert fedramp["citation"]["url"] == fedramp["source"]["url"]
+    assert fedramp["citation"]["json_paths"] == [
+        "KSI.CED.indicators.KSI-CED-RAT",
+        "CTL.AC.AC-02",
+    ]
+
+    result = await call(
+        "controls_get_control", control_id="AC-2(10)", sections=["fedramp"]
+    )
+    paths = result["provenance"]["fedramp"]["citation"]["json_paths"]
+    assert paths[-1] == "CTL.AC.AC-02-10"
+
+
+@pytest.mark.skipif(
+    not (Path("data") / store.DB_NAME).exists()
+    or not (Path("data") / "raw" / "fedramp_consolidated_rules.json").exists(),
+    reason="real store or FedRAMP file not present",
+)
+def test_real_fedramp_guidance_paths_exist_in_the_file():
+    """Every CTL path the control tool cites must be a real key in the
+    pinned FedRAMP file."""
+    import json
+
+    from crosswalk_mcp.tools.get_control import _ctl_key
+
+    payload = json.loads(
+        (Path("data") / "raw" / "fedramp_consolidated_rules.json").read_text()
+    )
+    s = store.open_store(Path("data") / store.DB_NAME)
+    rows = s.conn.execute(
+        "SELECT DISTINCT control_id FROM fedramp_control_guidance"
+    ).fetchall()
+    assert rows
+    for row in rows:
+        control_id = row["control_id"]
+        family = control_id.split("-")[0]
+        assert _ctl_key(control_id) in payload["CTL"][family], control_id
+    s.close()
 
 
 REAL_STORE = Path("data") / store.DB_NAME

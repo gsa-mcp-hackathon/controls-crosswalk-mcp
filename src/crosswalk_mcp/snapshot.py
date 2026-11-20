@@ -195,10 +195,24 @@ def fetch_all(
     client = client or httpx.Client(
         timeout=FETCH_TIMEOUT, follow_redirects=False, trust_env=True
     )
+    recorded = _recorded_hashes(dest_dir)
     entries: list[ManifestEntry] = []
+    changed: list[str] = []
     try:
         for source in selected:
             entry = fetch_source(source, dest_dir, client, force=force)
+            known = recorded.get(entry.key)
+            if known and known != entry.sha256:
+                if entry.fetched_at == "existing":
+                    # A file already on disk must be the file the manifest
+                    # describes. Writing a new manifest here would accept
+                    # a changed or damaged file without anyone noticing.
+                    raise SnapshotError(
+                        f"{entry.key}: {entry.filename} on disk does not match "
+                        "the manifest. Download it again with: fetch --force "
+                        f"--only {entry.key}"
+                    )
+                changed.append(entry.key)
             entries.append(entry)
             print(f"{entry.key:18} {entry.bytes:>10} bytes  {entry.sha256[:12]}")
     finally:
@@ -220,7 +234,23 @@ def fetch_all(
 
     path = write_manifest(entries, dest_dir)
     print(f"manifest written to {path} ({manifest_hash(entries)[:12]})")
+    if changed:
+        print(
+            "snapshot changed: the publisher's file differs from the previous "
+            f"manifest for {', '.join(changed)}. Review the manifest diff "
+            "before you rebuild the store.",
+            file=sys.stderr,
+        )
     return entries
+
+
+def _recorded_hashes(dest_dir: Path) -> dict[str, str]:
+    """The sha256 the current manifest records for each source, if any."""
+    try:
+        manifest = read_manifest(dest_dir)
+    except SnapshotError:
+        return {}
+    return {entry["key"]: entry["sha256"] for entry in manifest["sources"]}
 
 
 def main(argv: list[str] | None = None) -> int:

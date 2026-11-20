@@ -22,10 +22,16 @@ from crosswalk_mcp.tools.common import (
     source_record,
 )
 
+# NIST also publishes control level mappings in its CSF 2.0 informative
+# reference catalog. This server holds the CPRT export only, so the note
+# has to say which source the family level claim is about.
+# https://www.nist.gov/cyberframework/csf-20-informative-references
 FAMILY_NOTE = (
-    "CPRT publishes CSF 2.0 informative references to SP 800-53 at the family "
-    "level, not to individual controls. To find controls within a family, use "
-    "controls_search with the family filter, or controls_get_baseline."
+    "The CPRT export of CSF 2.0 gives its informative references to SP 800-53 "
+    "at the family level, not to individual controls. NIST publishes control "
+    "level mappings in a separate reference catalog that this server does not "
+    "hold. To find controls within a family, use controls_search with the "
+    "family filter, or controls_get_baseline."
 )
 
 
@@ -190,8 +196,8 @@ def _references(store: Store, record: dict) -> tuple[dict, list[str]]:
         ]
     if not record["references"]:
         return {**base, "status": "none_published", "families": []}, [
-            f"NIST publishes no SP 800-53 informative reference for {record['id']} "
-            "in CPRT. That is a gap in the published mapping, not a statement "
+            f"The CPRT export holds no SP 800-53 informative reference for "
+            f"{record['id']}. That is a gap in this export, not a statement "
             "that no control applies."
         ]
 

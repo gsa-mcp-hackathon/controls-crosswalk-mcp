@@ -65,3 +65,20 @@ async def test_tools_are_discoverable():
         "controls_crosswalk",
         "controls_data_status",
     } <= tool_names
+
+
+def test_health_reports_a_missing_store(tmp_path, tiny_store):
+    """A container without the store must not report healthy."""
+    from starlette.testclient import TestClient
+
+    from crosswalk_mcp.tools import common
+
+    client = TestClient(mcp.http_app())
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["store"] == "ready"
+
+    common.configure_store(tmp_path / "missing.sqlite")
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json()["store"] == "missing"

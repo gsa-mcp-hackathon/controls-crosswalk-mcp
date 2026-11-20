@@ -47,9 +47,9 @@ DERIVED_NOTE = (
     "mapping."
 )
 FAMILY_NOTE = (
-    "CSF references are published at the SP 800-53 family level. Use "
-    "controls_search with the family filter, or controls_get_baseline, to "
-    "list the controls in a family."
+    "The CPRT export of CSF 2.0 gives its SP 800-53 references at the family "
+    "level. Use controls_search with the family filter, or "
+    "controls_get_baseline, to list the controls in a family."
 )
 
 

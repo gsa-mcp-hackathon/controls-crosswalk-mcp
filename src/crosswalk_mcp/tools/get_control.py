@@ -9,12 +9,14 @@ from fastmcp.exceptions import ToolError
 from pydantic import Field
 
 from crosswalk_mcp.models import Release, Section
+from crosswalk_mcp.store import FEDRAMP_SOURCE, Store
 from crosswalk_mcp.tools.common import (
     cprt_citation,
     get_store,
     release_provenance,
     resolve_control_id,
     resolve_release,
+    source_record,
 )
 
 # Which result keys each optional section controls. Everything else in the
@@ -85,7 +87,9 @@ def register(mcp: FastMCP) -> None:
         parameter values for it, as published in the consolidated rules.
 
         Data is a fixed snapshot. The `provenance` block names the snapshot
-        hash, the source file, and a citation URL on csrc.nist.gov.
+        hash, the source file, and a citation URL on csrc.nist.gov. When the
+        result holds FedRAMP content, `provenance.fedramp` names the pinned
+        FedRAMP file and where each record sits in it.
         """
         store = get_store()
         wanted = resolve_control_id(control_id)
@@ -114,16 +118,64 @@ def register(mcp: FastMCP) -> None:
                 f"{wanted} is withdrawn in release {release_key}: "
                 f"{record['withdraw_reason']}."
             )
-        return {
-            "control": record,
-            "notes": notes,
-            "provenance": {
-                **release_provenance(store, release_key),
-                "citation": cprt_citation(
-                    store, release_key, record["cprt_id"], record["title"]
-                ),
-            },
+        provenance = {
+            **release_provenance(store, release_key),
+            "citation": cprt_citation(
+                store, release_key, record["cprt_id"], record["title"]
+            ),
         }
+        with store.lock:
+            fedramp = _fedramp_provenance(store, wanted, record)
+        if fedramp:
+            provenance["fedramp"] = fedramp
+        return {"control": record, "notes": notes, "provenance": provenance}
+
+
+def _fedramp_provenance(store: Store, control_id: str, record: dict) -> dict | None:
+    """Where the FedRAMP parts of a control record came from.
+
+    The KSI links and the guidance are published by FedRAMP, not NIST, so a
+    reader needs the FedRAMP file to check them. Returns None when the
+    record holds no FedRAMP content.
+    https://github.com/FedRAMP/rules
+    """
+    ksis = record.get("fedramp_ksis") or []
+    guidance = record.get("fedramp_guidance") or []
+    if not ksis and not guidance:
+        return None
+    document = store.fedramp_document()
+    source = source_record(store, FEDRAMP_SOURCE)
+    paths = [
+        f"KSI.{k['theme_id'].removeprefix('KSI-')}.indicators.{k['id']}" for k in ksis
+    ]
+    if guidance:
+        paths.append(f"CTL.{record['family']}.{_ctl_key(control_id)}")
+    return {
+        "source": source,
+        "document": {
+            "title": document["title"],
+            "version": document["version"],
+            "last_updated": document["last_updated"],
+        },
+        "citation": {
+            "text": (
+                f"{document['title']}, version {document['version']}, "
+                f"records that name {control_id}"
+            ),
+            "url": source["url"],
+            "json_paths": paths,
+        },
+    }
+
+
+def _ctl_key(control_id: str) -> str:
+    """AC-6(1) to AC-06-01, the way the FedRAMP file keys its CTL section."""
+    family, _, rest = control_id.partition("-")
+    number, _, enhancement = rest.partition("(")
+    key = f"{family}-{int(number):02d}"
+    if enhancement:
+        key += f"-{int(enhancement.rstrip(')')):02d}"
+    return key
 
 
 def _not_found_message(store, control_id: str, release: str) -> str:
