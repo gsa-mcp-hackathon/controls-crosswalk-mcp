@@ -12,7 +12,6 @@ All real logic lives in the submodules:
   - routes.py   HTTP-only infrastructure (health check, etc.)
   - config.py   settings loaded from env vars / .env
   - models.py   Pydantic models & enums for tool parameters
-  - utils.py    shared helpers (HTTP client, formatting, pagination)
 """
 
 from __future__ import annotations

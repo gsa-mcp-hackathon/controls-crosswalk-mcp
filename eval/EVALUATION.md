@@ -111,7 +111,7 @@ Measured on a laptop against the snapshot named at the top.
 | Check | Result |
 |---|---|
 | Gold answers re-derived through the tools | 15 of 15 |
-| Automated tests (unit, tool, and store tests) | 158 passed |
+| Automated tests (unit, tool, and store tests) | 140 passed |
 | Lint and format | clean |
 | Build of the SQLite store from fetched files | about 3 seconds |
 | Tool latency, warm, in-process, 300 calls across all nine tools | median 0.9 ms, 95th percentile 1.3 ms |

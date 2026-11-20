@@ -1,8 +1,6 @@
-"""crosswalk_mcp — a starter MCP server package.
-
-Rename this package to your service name (e.g. `census_mcp`, `weather_mcp`)
-before you publish. See the repo README ("Rename the package") for the two
-places you need to update.
+"""crosswalk_mcp: a read-only MCP server over NIST SP 800-53, the SP 800-53B
+baselines, the Cybersecurity Framework 2.0, and the FedRAMP Key Security
+Indicators. The README describes the tools and the data behind them.
 """
 
 __version__ = "0.1.0"

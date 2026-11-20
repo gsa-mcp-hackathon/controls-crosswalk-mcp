@@ -129,6 +129,8 @@ Tests marked with the real store run only when `data/crosswalk.sqlite` exists. T
 ```
 src/crosswalk_mcp/
 ├── app.py            FastMCP instance, transport selection
+├── config.py         settings read from environment variables
+├── routes.py         HTTP-only routes: health and version
 ├── sources.py        the pinned public sources
 ├── snapshot.py       fetch sources, write and verify the manifest
 ├── loaders/          one pure function per source file, returning rows
