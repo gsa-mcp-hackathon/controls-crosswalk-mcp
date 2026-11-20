@@ -19,6 +19,7 @@ import argparse
 import asyncio
 import os
 import sys
+import threading
 from pathlib import Path
 
 from langchain.agents import create_agent
@@ -66,11 +67,37 @@ def agent_model() -> BaseChatModel:
     # langchain-openai leaves temperature out for reasoning models that
     # only accept their default.
     # https://python.langchain.com/docs/integrations/chat/openai/
-    return ChatOpenAI(model=model, temperature=0, timeout=120, max_retries=2)
+    #
+    # OpenAI's newer reasoning models refuse tool calls on the older Chat
+    # Completions API, so calls to OpenAI itself use the Responses API.
+    # An OpenAI-compatible endpoint set in OPENAI_BASE_URL may only offer
+    # Chat Completions, so there the choice is left to langchain-openai.
+    # https://platform.openai.com/docs/guides/migrate-to-responses
+    own_endpoint = bool(os.environ.get("OPENAI_BASE_URL", "").strip())
+    return ChatOpenAI(
+        model=model,
+        temperature=0,
+        timeout=120,
+        max_retries=2,
+        use_responses_api=None if own_endpoint else True,
+    )
+
+
+def trace_endpoint(base: str | None) -> str:
+    """The address Phoenix receives traces on, built from its base address.
+
+    Phoenix sends an address passed in code exactly as given, so the base
+    address alone gets a "405 Method Not Allowed" reply. The traces path
+    has to be added here.
+    https://arize.com/docs/phoenix/tracing/how-to-tracing/setup-tracing
+    """
+    base = (base or "http://localhost:6006").rstrip("/")
+    return base if base.endswith("/v1/traces") else f"{base}/v1/traces"
 
 
 def instrument(project_name: str, endpoint: str | None) -> None:
-    """Send LangChain traces to Phoenix. Safe to call more than once."""
+    """Send LangChain traces to Phoenix. Safe to call more than once.
+    `endpoint` is the Phoenix base address, such as http://localhost:6006."""
     from openinference.instrumentation.langchain import LangChainInstrumentor
     from phoenix.otel import register
 
@@ -78,12 +105,36 @@ def instrument(project_name: str, endpoint: str | None) -> None:
         return
     provider = register(
         project_name=project_name,
-        endpoint=endpoint,
+        endpoint=trace_endpoint(endpoint),
         batch=True,
         set_global_tracer_provider=False,
         verbose=False,
     )
     LangChainInstrumentor().instrument(tracer_provider=provider)
+
+
+_loop: asyncio.AbstractEventLoop | None = None
+_loop_lock = threading.Lock()
+
+
+def run_on_shared_loop(coroutine):
+    """Run a coroutine on one event loop that lasts as long as the process.
+
+    The OpenAI client keeps its network connections open between
+    questions, and a connection only works on the event loop that opened
+    it. asyncio.run starts and closes a new loop on every call, so the
+    second question failed with "Event loop is closed". One loop on a
+    background thread avoids that.
+    https://docs.python.org/3/library/asyncio-task.html#asyncio.run_coroutine_threadsafe
+    """
+    global _loop
+    with _loop_lock:
+        if _loop is None:
+            _loop = asyncio.new_event_loop()
+            threading.Thread(
+                target=_loop.run_forever, daemon=True, name="eval-agent-loop"
+            ).start()
+    return asyncio.run_coroutine_threadsafe(coroutine, _loop).result()
 
 
 class CrosswalkAgent:
@@ -139,7 +190,7 @@ class CrosswalkAgent:
         dataset example; its input has the `query` column."""
 
         def task(example) -> str:
-            return asyncio.run(self.run(example.input["query"]))
+            return run_on_shared_loop(self.run(example.input["query"]))
 
         return task
 
