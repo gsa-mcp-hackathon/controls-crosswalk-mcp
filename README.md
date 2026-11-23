@@ -112,7 +112,7 @@ MCP_TRANSPORT=streamable-http uv run python main.py
 curl http://localhost:8000/health
 ```
 
-The MCP endpoint is `/mcp`. `/health` returns 503 until the store has been built, because no data tool can answer without it. The server also switches to HTTP on its own when a platform sets `PORT` or `DATABRICKS_APP_PORT`. See [deploy/README.md](deploy/README.md) for the IBM watsonx Orchestrate and Databricks kits from the template.
+The MCP endpoint is `/mcp`. `/health` returns 503 until a usable store has been built, because no data tool can answer without it. The server also switches to HTTP on its own when a platform sets `PORT` or `DATABRICKS_APP_PORT`. See [deploy/README.md](deploy/README.md) for the IBM watsonx Orchestrate and Databricks kits from the template.
 
 ## Verify
 

@@ -1133,7 +1133,8 @@ def _statement_tree(rows: list[sqlite3.Row]) -> list[dict]:
 
 
 def open_store(path: Path | None = None) -> Store:
-    """Open the store read only. Raises StoreError if it is missing or stale."""
+    """Open the store read only. Raises StoreError if it is missing, stale,
+    or not a store at all."""
     path = path or db_path()
     if not path.exists():
         raise StoreError(
@@ -1145,7 +1146,15 @@ def open_store(path: Path | None = None) -> Store:
         f"{path.resolve().as_uri()}?mode=ro", uri=True, check_same_thread=False
     )
     store = Store(conn)
-    version = store.meta().get("schema_version")
+    try:
+        version = store.meta().get("schema_version")
+    except sqlite3.DatabaseError as exc:
+        # An empty or damaged file opens, then fails on the first read.
+        store.close()
+        raise StoreError(
+            f"{path} is not a usable store ({exc}). "
+            "Rebuild with: uv run python -m crosswalk_mcp.store build"
+        ) from None
     if version != str(SCHEMA_VERSION):
         store.close()
         raise StoreError(

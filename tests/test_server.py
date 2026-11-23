@@ -67,8 +67,8 @@ async def test_tools_are_discoverable():
     } <= tool_names
 
 
-def test_health_reports_a_missing_store(tmp_path, tiny_store):
-    """A container without the store must not report healthy."""
+def test_health_reports_a_missing_or_unusable_store(tmp_path, tiny_store):
+    """A container without a usable store must not report healthy."""
     from starlette.testclient import TestClient
 
     from crosswalk_mcp.tools import common
@@ -81,4 +81,12 @@ def test_health_reports_a_missing_store(tmp_path, tiny_store):
     common.configure_store(tmp_path / "missing.sqlite")
     response = client.get("/health")
     assert response.status_code == 503
-    assert response.json()["store"] == "missing"
+    assert response.json()["store"] == "unavailable"
+
+    # A file that exists but is not a store must not report healthy either.
+    empty = tmp_path / "empty.sqlite"
+    empty.touch()
+    common.configure_store(empty)
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json()["store"] == "unavailable"

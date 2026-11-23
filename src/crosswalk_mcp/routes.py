@@ -5,8 +5,9 @@ sit alongside the `/mcp` endpoint on the same app.
 
 The `/health` route matters for cloud deploys: cloud.gov, IBM Code Engine, and
 Databricks Apps all use an HTTP health check to decide the app started
-correctly. Keep it fast. It only checks that the store file exists, because
-without the store every data tool fails.
+correctly. Keep it fast. It checks that the store opens with the expected
+schema, because without a usable store every data tool fails. The open store
+is kept, so only the first check does real work.
 """
 
 from __future__ import annotations
@@ -32,8 +33,9 @@ def register_routes(mcp: FastMCP) -> None:
                 {
                     "status": "unavailable",
                     "service": service,
-                    "store": "missing",
-                    "detail": "Build the store: python -m crosswalk_mcp.store build",
+                    "store": "unavailable",
+                    "detail": "The store is missing or unusable. Build it: "
+                    "python -m crosswalk_mcp.store build",
                 },
                 status_code=503,
             )

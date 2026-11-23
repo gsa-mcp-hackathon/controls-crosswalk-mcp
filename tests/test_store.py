@@ -247,6 +247,19 @@ def test_open_store_reports_missing_and_stale(tmp_path: Path):
         store.open_store(out)
 
 
+def test_open_store_reports_a_file_that_is_not_a_store(tmp_path: Path):
+    """An empty file and a non-SQLite file both get a clear StoreError."""
+    empty = tmp_path / "empty.sqlite"
+    empty.touch()
+    with pytest.raises(store.StoreError, match="not a usable store"):
+        store.open_store(empty)
+
+    junk = tmp_path / "junk.sqlite"
+    junk.write_text("this is not a database, it is a text file", encoding="utf-8")
+    with pytest.raises(store.StoreError, match="not a usable store"):
+        store.open_store(junk)
+
+
 REAL_STORE = Path("data") / store.DB_NAME
 
 

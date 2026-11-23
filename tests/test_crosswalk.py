@@ -12,6 +12,7 @@ import pytest
 from fastmcp.exceptions import ToolError
 
 from crosswalk_mcp import store
+from crosswalk_mcp.tools import common
 from tests.test_tools import call
 
 
@@ -83,6 +84,20 @@ async def test_csf_to_controls_lists_families(tiny_store):
     assert hit["links"][0]["direction"] == "as_published"
     assert result["derived"]["total"] == 0
     assert any("family level" in note for note in result["notes"])
+    # The family hit cites the CSF element, where NIST publishes the link.
+    assert hit["citation"]["url"].endswith("element=GV.OC-01")
+    assert [s["key"] for s in result["provenance"]["sources"]] == ["csf_2_0_0"]
+
+
+async def test_no_hits_still_names_the_source_searched(tiny_store):
+    """An empty answer must say where the server looked."""
+    result = await call(
+        "controls_crosswalk", source_id="KSI-CED-VAR", to_framework="sp800_53"
+    )
+    assert result["direct"] == []
+    assert result["derived"]["total"] == 0
+    assert any("No published link" in note for note in result["notes"])
+    assert [s["key"] for s in result["provenance"]["sources"]] == ["fedramp_rules"]
 
 
 async def test_csf_to_ksi_composes_two_hops(tiny_store):
@@ -278,6 +293,20 @@ def test_real_fedramp_guidance_paths_exist_in_the_file():
 
 
 REAL_STORE = Path("data") / store.DB_NAME
+
+
+@pytest.mark.skipif(not REAL_STORE.exists(), reason="real store not built")
+async def test_real_ksi_with_no_controls_names_its_source():
+    """KSI-PIY-RES lists no related controls. The result still cites FedRAMP."""
+    common.configure_store(REAL_STORE)
+    try:
+        result = await call(
+            "controls_crosswalk", source_id="KSI-PIY-RES", to_framework="sp800_53"
+        )
+    finally:
+        common.configure_store(None)
+    assert result["direct"] == []
+    assert [s["key"] for s in result["provenance"]["sources"]] == ["fedramp_rules"]
 
 
 @pytest.mark.skipif(not REAL_STORE.exists(), reason="real store not built")

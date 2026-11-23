@@ -111,7 +111,7 @@ Measured on a laptop against the snapshot named at the top.
 | Check | Result |
 |---|---|
 | Gold answers re-derived through the tools | 15 of 15 |
-| Automated tests (unit, tool, and store tests) | 140 passed |
+| Automated tests (unit, tool, and store tests) | 143 passed |
 | Lint and format | clean |
 | Build of the SQLite store from fetched files | about 3 seconds |
 | Tool latency, warm, in-process, 300 calls across all nine tools | median 0.9 ms, 95th percentile 1.3 ms |
@@ -129,7 +129,7 @@ One run of each configuration, 15 questions each. Every run finished without an 
 | Tools, prompt v1 (conventions only) | 13 of 15 | 12 of 15 | 3.9 s | 1.9 |
 | No tools, baseline prompt | 5 of 15 | 9 of 15 | 13.2 s | 0 |
 
-Comparing configurations: the same model went from 5 of 15 correct without the server to 15 of 15 with the server and prompt v2, a gain of 10 questions. Not all of that gain is the tools, because prompt v2 has rules and hints the baseline prompt lacks. Prompt v1 has neither. With the tools it still scored 13 of 15 and answered all 11 data questions, where the baseline answered 2 of those 11.
+Comparing configurations: the same model went from 5 of 15 correct without the server to 15 of 15 with the server and prompt v2, a gain of 10 questions. Not all of that gain is the tools, because prompt v2 has two source-specific hints and a claim-checking rule that the baseline prompt lacks. Prompt v1 has neither, and unlike the baseline prompt it has no scope or injection rules. With the tools it still scored 13 of 15 and answered all 11 data questions, where the baseline answered 2 of those 11.
 
 The scope numbers for the two runs with tools understate the agent. Every scope flag on prompt v2 was on an answer that matches the reference. See the failure analysis below.
 
@@ -210,8 +210,8 @@ During evaluation the server runs as a local process over stdio, and traces go t
 
 ### What was harder than expected
 
-- An identifier we assumed existed did not exist in the published KSI list. Assumed identifiers are a real risk in this domain, for people and models alike, which is why the tools reject unknown identifiers with a message that says what a valid one looks like.
-- The MCP adapter package the template's evaluation skill uses did not support the MCP library version the server framework needs. We bridged the tools with the framework's own client instead.
+- An identifier assumed to exist during the build did not exist in the published KSI list. Assumed identifiers are a real risk in this domain, for people and models alike, which is why the tools reject unknown identifiers with a message that says what a valid one looks like.
+- The MCP adapter package the template's evaluation skill uses did not support the MCP library version the server framework needs. The harness bridges the tools with the framework's own client instead.
 - Phoenix stops an experiment task after 60 seconds by default. A question that needs many tool calls can take longer, so the runner raises the limit.
 - Some models only accept their default temperature, so "temperature 0" cannot be assumed for every agent or judge. Both models in this run are of that kind, so repeated runs can differ. The five-run experiment measures how much.
 - The agent model refuses tool calls on OpenAI's older Chat Completions API. The harness uses the Responses API for it.
@@ -219,11 +219,11 @@ During evaluation the server runs as a local process over stdio, and traces go t
 
 ### Limitations
 
-- The dataset is small (15 questions) and was written by the team that built the server.
+- The dataset is small (15 questions) and was written by the one developer who built the server. No one else has reviewed the questions or the reference answers.
 - The baseline prompt and prompt v2 differ in more than the tools, as described under the no-tool baseline. The 5 of 15 and 15 of 15 results compare two configurations.
 - One "source does not say" question asks which control NIST publishes for PR.AA-01. "None published" is true of the pinned CPRT export. NIST publishes control-level mappings in a separate informative reference catalog that this server does not hold, so the question should name the export. The baseline's answer to it, IA-4, was scored against the export.
 - No gold question needs `controls_crosswalk`, and the agent did not call it in any of the 105 runs with tools. That tool is covered by unit tests, not by the agent evaluation.
-- After the recorded runs, review feedback led to small changes: two tool notes now name the CPRT export, `controls_get_control` cites the FedRAMP file for FedRAMP content, a fetch refuses a changed cached file, and the health route reports a missing store. The model runs were not repeated. The gold check and the test suite were.
+- After the recorded runs, review feedback led to small changes: two tool notes now name the CPRT export, `controls_get_control` cites the FedRAMP file for FedRAMP content, a fetch refuses a changed cached file, the health route reports a missing or unusable store, and `controls_crosswalk` names the sources it searched even when it finds no links and cites the CSF element on a family-level hit. The model runs were not repeated. The gold check and the test suite were.
 - The judges are LLMs and carry their own bias and variance. Judge verdicts on failures need human review.
 - The injection cases cover the question channel only. They are a starting set, not a red-team exercise.
 - Results describe one agent model and one judge model on one snapshot.

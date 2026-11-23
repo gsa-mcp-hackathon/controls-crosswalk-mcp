@@ -333,7 +333,16 @@ class _CrosswalkView:
         }
 
     def _family_hit(self, family: str, title: str | None) -> dict:
-        return {"framework": "sp800_53", "id": family, "kind": "family", "title": title}
+        """A family named by the source CSF element. The citation points at
+        that CSF element, because its reference list is where NIST publishes
+        the link."""
+        return {
+            "framework": "sp800_53",
+            "id": family,
+            "kind": "family",
+            "title": title,
+            "citation": csf_citation(self.csf_document, self.csf_element),
+        }
 
     def _csf_hit(self, row: dict) -> dict:
         return {
@@ -354,10 +363,13 @@ class _CrosswalkView:
             "citation": ksi_citation(self.fedramp_document, self.fedramp_url, row),
         }
 
-    # The six crosswalk shapes. Each returns (direct, derived).
+    # The six crosswalk shapes. Each returns (direct, derived). Each one
+    # records the sources it searched before it looks, so a result with no
+    # hits still says where it looked.
 
     def _control_to_csf(self, source: dict):
         family = self.control["family"]
+        self.sources.update({SP800_53_RELEASES[0][1], CSF_SOURCE})
         derived = []
         for row in self.store.csf_elements_for_families([family]):
             derived.append(
@@ -381,6 +393,7 @@ class _CrosswalkView:
         return [], derived
 
     def _control_to_ksi(self, source: dict):
+        self.sources.add(FEDRAMP_SOURCE)
         direct = [
             {
                 **self._ksi_hit(row),
@@ -394,6 +407,7 @@ class _CrosswalkView:
         return direct, []
 
     def _csf_to_controls(self, source: dict):
+        self.sources.add(CSF_SOURCE)
         families = self._csf_families()
         titles = self.store.family_titles(self.release)
         direct = [
@@ -418,6 +432,7 @@ class _CrosswalkView:
                 "CSF to KSI paths need two published links. Set max_hops to 2."
             )
             return [], []
+        self.sources.update({CSF_SOURCE, SP800_53_RELEASES[0][1], FEDRAMP_SOURCE})
         families = self._csf_families()
         family_of: dict[str, str] = {}
         target_docs: dict[str, str] = dict(families)
@@ -449,6 +464,7 @@ class _CrosswalkView:
         return [], list(grouped.values())
 
     def _ksi_to_controls(self, source: dict):
+        self.sources.add(FEDRAMP_SOURCE)
         ids = [c["id"] for c in self.ksi["controls"]]
         briefs = self.store.control_briefs(ids, self.release)
         direct = []
@@ -490,6 +506,7 @@ class _CrosswalkView:
                 "KSI to CSF paths need two published links. Set max_hops to 2."
             )
             return [], []
+        self.sources.update({FEDRAMP_SOURCE, SP800_53_RELEASES[0][1], CSF_SOURCE})
         ids = [c["id"] for c in self.ksi["controls"]]
         briefs = self.store.control_briefs(ids, self.release)
         controls_by_family: dict[str, list[str]] = {}

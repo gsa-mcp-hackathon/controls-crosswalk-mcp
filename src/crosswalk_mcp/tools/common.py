@@ -14,7 +14,7 @@ from fastmcp.exceptions import ToolError
 from crosswalk_mcp.ids import InvalidIdentifier, normalize_control_id
 from crosswalk_mcp.models import LATEST_RELEASE, Release
 from crosswalk_mcp.sources import SOURCES_BY_KEY
-from crosswalk_mcp.store import Store, StoreError, db_path, open_store
+from crosswalk_mcp.store import Store, StoreError, open_store
 
 # The CPRT catalog page for one element of a framework version.
 # https://csrc.nist.gov/projects/cprt
@@ -55,8 +55,13 @@ def get_store() -> Store:
 
 
 def store_ready() -> bool:
-    """True when the store file exists. Cheap enough for a health check."""
-    return (_store_path or db_path()).exists()
+    """True when the store opens with the schema this code expects. The open
+    store is kept, so repeated health checks stay cheap."""
+    try:
+        get_store()
+    except ToolError:
+        return False
+    return True
 
 
 def resolve_release(release: Release | None) -> str:
