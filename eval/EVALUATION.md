@@ -1,6 +1,6 @@
 # Evaluation Document
 
-GSA MCP Server and AI Agent Government Hackathon
+GSA MCP Server Hackathon
 
 | | |
 |---|---|
@@ -203,7 +203,7 @@ During evaluation the server runs as a local process over stdio, and traces go t
 
 ### What worked
 
-- **Verifying gold answers through the tools.** Writing a resolver for every question proves each one is answerable from the tools, and it caught a wrong assumption of ours before any model ran: a search for a vulnerability term does return controls, so an empty search result is not how an agent learns a topic is out of scope.
+- **Verifying gold answers through the tools.** Writing a resolver for every question proves each one is answerable from the tools, and it caught a wrong assumption before any model ran: a search for a vulnerability term does return controls, so an empty search result is not how an agent learns a topic is out of scope.
 - **Reading the sources before designing the tools.** NIST's CPRT export of CSF 2.0 gives its references to SP 800-53 at the family level, not the control level, and FedRAMP's related-control lists name no SP 800-53 release. Both findings changed the design. The server reports them as they are, and two gold questions test that the agent does too.
 - **Pinned, hashed data.** Stable sources make stable gold answers, and the snapshot hash in every result ties an answer to its files.
 - **Versioned prompts and a registry of datasets.** Each run is one command and can be compared with the last.
