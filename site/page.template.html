@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evaluation Document | Controls Crosswalk MCP</title>
+  <meta name="description" content="Testing methodology, performance metrics, security considerations, and lessons learned for the Controls Crosswalk MCP server.">
+  {{uswds_head}}
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="usa-skipnav" href="#main-content">Skip to main content</a>
+
+  <!-- No government banner on purpose. This is not an official .gov site.
+       https://designsystem.digital.gov/components/banner/ -->
+  <div class="usa-overlay"></div>
+  <header class="usa-header usa-header--extended">
+    <div class="usa-navbar">
+      <div class="usa-logo">
+        <em class="usa-logo__text"><a href="index.html" title="Controls Crosswalk MCP">Controls Crosswalk MCP</a></em>
+      </div>
+      <button type="button" class="usa-menu-btn">Menu</button>
+    </div>
+    <nav aria-label="Primary navigation" class="usa-nav">
+      <div class="usa-nav__inner">
+        <button type="button" class="usa-nav__close"><img src="{{uswds_img}}/usa-icons/close.svg" role="img" alt="Close"></button>
+        <ul class="usa-nav__primary usa-accordion">
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="index.html"><span>Home</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="index.html#tools"><span>Tools</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="index.html#demo"><span>Demo</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="index.html#results"><span>Results</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link usa-current" href="evaluation.html" aria-current="page"><span>Evaluation</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="{{repo_url}}"><span>GitHub</span></a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <div class="usa-section">
+    <div class="grid-container">
+      <!-- The side list of sections is built in the browser from the h2
+           headings. It shows on wide screens only.
+           https://designsystem.digital.gov/components/in-page-navigation/ -->
+      <div class="usa-in-page-nav-container">
+        <aside class="usa-in-page-nav"
+          data-title-text="On this page"
+          data-title-heading-level="h2"
+          data-heading-elements="h2"
+          data-scroll-offset="0"
+          data-root-margin="0px 0px 0px 0px"
+          data-threshold="1"></aside>
+        <main id="main-content" class="usa-prose doc">
+          <h1>Evaluation Document</h1>
+          {{content}}
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <footer class="usa-footer usa-footer--slim">
+    <div class="grid-container usa-footer__return-to-top">
+      <a href="#">Return to top</a>
+    </div>
+    <div class="usa-footer__secondary-section">
+      <div class="grid-container">
+        <p class="margin-0 font-sans-xs">This page is generated from <a href="{{repo_url}}/blob/main/eval/EVALUATION.md">eval/EVALUATION.md</a> in the repository. Controls Crosswalk MCP is an independent hackathon project built by one developer. It is not affiliated with or endorsed by NIST, GSA, or FedRAMP.</p>
+      </div>
+    </div>
+  </footer>
+
+  {{uswds_script}}
+</body>
+</html>

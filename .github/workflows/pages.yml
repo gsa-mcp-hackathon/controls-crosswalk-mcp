@@ -1,0 +1,58 @@
+name: Pages
+
+# Builds the project site with site/build.py and publishes it with GitHub
+# Pages. In the repository settings, set Pages > Source to "GitHub Actions".
+# https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site#publishing-with-a-custom-github-actions-workflow
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The deploy step needs to write to Pages and to request an identity token.
+# https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish, and keep only the newest one waiting.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Only the public organization repository publishes the site, so a
+    # private copy of this repository does not show a failed run.
+    if: github.repository_owner == 'gsa-mcp-hackathon'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Build the site
+        run: uv run --no-project --with markdown python site/build.py
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

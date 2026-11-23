@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controls Crosswalk MCP</title>
+  <meta name="description" content="A read-only MCP server over NIST SP 800-53, the SP 800-53B baselines, CSF 2.0, and the FedRAMP Key Security Indicators. Every answer cites its source.">
+  {{uswds_head}}
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="usa-skipnav" href="#main-content">Skip to main content</a>
+
+  <!-- No government banner on purpose. This is not an official .gov site.
+       https://designsystem.digital.gov/components/banner/ -->
+  <div class="usa-overlay"></div>
+  <header class="usa-header usa-header--extended">
+    <div class="usa-navbar">
+      <div class="usa-logo">
+        <em class="usa-logo__text"><a href="index.html" title="Controls Crosswalk MCP">Controls Crosswalk MCP</a></em>
+      </div>
+      <button type="button" class="usa-menu-btn">Menu</button>
+    </div>
+    <nav aria-label="Primary navigation" class="usa-nav">
+      <div class="usa-nav__inner">
+        <button type="button" class="usa-nav__close"><img src="{{uswds_img}}/usa-icons/close.svg" role="img" alt="Close"></button>
+        <ul class="usa-nav__primary usa-accordion">
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="#solution"><span>Solution</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="#tools"><span>Tools</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="#demo"><span>Demo</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="#results"><span>Results</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="#security"><span>Security</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="evaluation.html"><span>Evaluation</span></a></li>
+          <li class="usa-nav__primary-item"><a class="usa-nav-link" href="{{repo_url}}"><span>GitHub</span></a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <section class="usa-section usa-section--dark" aria-labelledby="hero-heading">
+      <div class="grid-container">
+        <h1 class="font-heading-3xl margin-top-0" id="hero-heading">Controls Crosswalk MCP</h1>
+        <p class="usa-intro">Source-cited answers about federal security controls, for AI agents. One read-only MCP server over NIST SP 800-53, the SP 800-53B baselines, the Cybersecurity Framework 2.0, and the FedRAMP Key Security Indicators.</p>
+        <ul class="usa-button-group margin-top-3">
+          <li class="usa-button-group__item"><a class="usa-button usa-button--big" href="{{repo_url}}">View the code on GitHub</a></li>
+          <li class="usa-button-group__item"><a class="usa-button usa-button--big usa-button--outline usa-button--inverse" href="evaluation.html">Read the evaluation</a></li>
+        </ul>
+        <p class="hero-note margin-top-3 margin-bottom-0">Built for the 2026 GSA MCP Server and AI Agent Government Hackathon. Unofficial: not affiliated with or endorsed by NIST, GSA, or FedRAMP.</p>
+      </div>
+    </section>
+
+    <section class="usa-section" id="problem" aria-labelledby="problem-heading">
+      <div class="grid-container">
+        <div class="grid-row grid-gap-4">
+          <div class="tablet:grid-col-7 usa-prose">
+            <h2 id="problem-heading">The challenge</h2>
+            <p>Security teams keep answering the same questions by hand:</p>
+            <ul>
+              <li>What changed between SP 800-53 release 5.1.1 and 5.2.0?</li>
+              <li>Which baselines select this control?</li>
+              <li>Which controls does FedRAMP relate to this Key Security Indicator?</li>
+              <li>How does CSF 2.0 point to SP 800-53?</li>
+            </ul>
+            <p>The answers are spread across four publications from NIST and FedRAMP, each in its own format. A wrong control count or an invented mapping in an authorization package is worse than no answer.</p>
+          </div>
+          <div class="tablet:grid-col-5 margin-top-4 tablet:margin-top-0">
+            <div class="stat-box">
+              <p class="margin-0"><span class="stat-number">{{base_correct}} of {{total}}</span> gold questions a current AI model answered correctly without the server.</p>
+              <ul class="usa-list margin-bottom-0">
+                <li>It said 12 controls were added in release 5.2.0. The answer is 3.</li>
+                <li>It answered KSI-CNA-01 where the answer is KSI-PIY-RES.</li>
+                <li>It repeated a false claim that AC-2 was withdrawn.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="usa-section usa-section--light" id="solution" aria-labelledby="solution-heading">
+      <div class="grid-container">
+        <div class="usa-prose">
+          <h2 id="solution-heading">The solution</h2>
+          <p>One server holds all four sources in a single pinned snapshot and exposes nine read-only tools over the Model Context Protocol.</p>
+        </div>
+
+        <div class="flow">
+          <div class="sources">
+            <div class="box">NIST SP 800-53 Rev. 5, releases 5.1.1 and 5.2.0</div>
+            <div class="box">NIST SP 800-53B baselines</div>
+            <div class="box">NIST Cybersecurity Framework 2.0</div>
+            <div class="box">FedRAMP Key Security Indicators</div>
+          </div>
+          <div class="arrow" aria-hidden="true">&rarr;</div>
+          <div class="box big dark">One pinned, hashed snapshot<span>SQLite store, opened read-only</span></div>
+          <div class="arrow" aria-hidden="true">&rarr;</div>
+          <div class="box big accent">9 tools<span>typed, read-only, over MCP</span></div>
+          <div class="arrow" aria-hidden="true">&rarr;</div>
+          <div class="box big">AI agent or assistant</div>
+        </div>
+
+        <ul class="usa-card-group">
+          <li class="usa-card tablet:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">Every answer cites its source</h3></div>
+              <div class="usa-card__body"><p>Each result carries the snapshot hash, the source file, and a citation URL.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">Published links are labeled</h3></div>
+              <div class="usa-card__body"><p>Direct means one published link. Derived means the server composed links, and it shows the path.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">No compliance verdicts</h3></div>
+              <div class="usa-card__body"><p>The server never states that a requirement, control, or indicator is satisfied.</p></div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="usa-section" id="tools" aria-labelledby="tools-heading">
+      <div class="grid-container">
+        <div class="usa-prose margin-bottom-3">
+          <h2 id="tools-heading">Nine tools built around user goals</h2>
+          <p>Each tool is an action a person asks for. Identifiers work in any common spelling, such as <code>AC-2(3)</code>, <code>AC-02(03)</code>, or <code>ac-2.3</code>.</p>
+        </div>
+        <ul class="usa-card-group">
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_get_control</h3></div>
+              <div class="usa-card__body"><p>One control in full, in either release.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_search</h3></div>
+              <div class="usa-card__body"><p>Full-text search with family, baseline, and release filters.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_diff_releases</h3></div>
+              <div class="usa-card__body"><p>What changed between two releases, with before and after text.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_get_baseline</h3></div>
+              <div class="usa-card__body"><p>The members of one SP 800-53B baseline.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_baseline_membership</h3></div>
+              <div class="usa-card__body"><p>Which baselines select each of up to 50 controls.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_get_csf_element</h3></div>
+              <div class="usa-card__body"><p>A CSF 2.0 function, category, or subcategory with its references.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_get_ksi</h3></div>
+              <div class="usa-card__body"><p>FedRAMP KSI themes and indicators with their related controls.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_crosswalk</h3></div>
+              <div class="usa-card__body"><p>Follow published links between a control, a CSF element, and a KSI.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading tool-name">controls_data_status</h3></div>
+              <div class="usa-card__body"><p>Which datasets the server holds, the snapshot hash, and every source.</p></div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="usa-section usa-section--light" id="demo" aria-labelledby="demo-heading">
+      <div class="grid-container">
+        <div class="usa-prose">
+          <h2 id="demo-heading">See it work</h2>
+          <p>Three examples. The first and third show real tool output from the pinned snapshot. The second is a recorded run from the evaluation.</p>
+        </div>
+
+        <div class="demo">
+          <h3 class="font-heading-lg margin-bottom-1"><span class="usa-tag">Example 1</span> What changed in a control</h3>
+          <p class="question margin-y-1">What changed in SI-7(12) between SP 800-53 release 5.1.1 and 5.2.0?</p>
+          <p class="margin-top-1">One tool call: <code>controls_diff_releases(control_id="SI-7(12)")</code></p>
+          <div class="terminal">
+            <p><span class="tag">Release 5.1.1</span>Require that the integrity of the following <span class="removed">user-installed software</span> be verified prior to execution: [Assignment: organization-defined <span class="removed">user-installed software</span>].</p>
+            <p><span class="tag">Release 5.2.0</span>Require that the integrity of the following <span class="added">software</span> be verified prior to execution: [Assignment: organization-defined <span class="added">software</span>].</p>
+          </div>
+          <p class="text-base-darker">Release 5.2.0 removes the "user-installed" restriction. The organization still specifies which software requires integrity verification. The same call also returns the changes to the discussion, the parameter, the assessment objective, and the test method.</p>
+        </div>
+
+        <div class="demo">
+          <h3 class="font-heading-lg margin-bottom-1"><span class="usa-tag">Example 2</span> A question that needs many steps</h3>
+          <p class="question margin-top-1">Exactly one FedRAMP Key Security Indicator lists no related SP 800-53 controls. Which one?</p>
+          <ul class="usa-card-group">
+            <li class="usa-card tablet:grid-col-4">
+              <div class="usa-card__container">
+                <div class="usa-card__body"><p><span class="stat-number">KSI-PIY-RES</span> the agent's answer, correct, in 5.0 seconds</p></div>
+              </div>
+            </li>
+            <li class="usa-card tablet:grid-col-4">
+              <div class="usa-card__container">
+                <div class="usa-card__body"><p><span class="stat-number">11</span> tool calls, the same in all five repeated runs</p></div>
+              </div>
+            </li>
+            <li class="usa-card tablet:grid-col-4">
+              <div class="usa-card__container">
+                <div class="usa-card__body"><p><span class="stat-number wrong">KSI-CNA-01</span> the same model's wrong answer without the server</p></div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="demo">
+          <h3 class="font-heading-lg margin-bottom-1"><span class="usa-tag">Example 3</span> Following published links</h3>
+          <p class="question margin-y-1">Which FedRAMP Key Security Indicators connect to CSF subcategory PR.AA-01?</p>
+          <p class="margin-top-1">One tool call: <code>controls_crosswalk(source_id="PR.AA-01", to_framework="ksi")</code></p>
+          <ol class="path" aria-label="One derived path, in order">
+            <li class="end"><code>PR.AA-01</code><span>CSF 2.0 subcategory</span></li>
+            <li><code>IA</code><span>SP 800-53 family</span></li>
+            <li><code>IA-12</code><span>SP 800-53 control</span></li>
+            <li class="end"><code>KSI-IAM-AAM</code><span>FedRAMP indicator</span></li>
+          </ol>
+          <p class="text-base-darker">The tool reports no direct links and seven derived indicators. In this path NIST published the first link as an informative reference, the second is family membership from the catalog, and FedRAMP published the third as a related control. The server composed the chain and labels it derived: a starting point for analysis, not a published mapping.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="usa-section" id="results" aria-labelledby="results-heading">
+      <div class="grid-container">
+        <div class="usa-prose">
+          <h2 id="results-heading">Evaluation results</h2>
+          <p>{{run_count}} recorded agent runs on {{total}} gold questions, scored by two LLM judges and traced in Arize Phoenix. A separate gold check re-derives all {{total}} reference answers through the tools with no model.</p>
+        </div>
+
+        <h3 class="font-heading-lg margin-top-4">Correct answers out of {{total}}</h3>
+        <ul class="bars">
+          <li><span class="name">No tools</span><span class="track"><span class="fill base" style="width: {{base_percent}}%"></span></span><span class="value">{{base_correct}} of {{total}}</span></li>
+          <li><span class="name">Tools, basic prompt</span><span class="track"><span class="fill mid" style="width: {{v1_percent}}%"></span></span><span class="value">{{v1_correct}} of {{total}}</span></li>
+          <li><span class="name">Tools, full prompt</span><span class="track"><span class="fill" style="width: {{v2_percent}}%"></span></span><span class="value">{{v2_correct}} of {{total}}</span></li>
+        </ul>
+
+        <ul class="usa-card-group">
+          <li class="usa-card tablet:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__body"><p><span class="stat-number">{{five_correct}} of {{five_total}}</span> runs correct when every question was asked five times</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__body"><p><span class="stat-number">{{v2_seconds}} s</span> mean time to answer with tools, against {{base_seconds}} s without</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__body"><p><span class="stat-number">{{median_calls}}</span> median tool calls per question, and {{max_calls}} at most</p></div>
+            </div>
+          </li>
+        </ul>
+
+        <div class="usa-summary-box" role="region" aria-labelledby="read-numbers-heading">
+          <div class="usa-summary-box__body">
+            <h3 class="usa-summary-box__heading" id="read-numbers-heading">How to read these numbers</h3>
+            <div class="usa-summary-box__text">
+              <p class="margin-bottom-0">The runs compare configurations, and the prompts differ. The full prompt gives two source-specific hints and tells the agent to check claims with the tools. The no-tools prompt does not, so that gap is not the tools alone. The basic prompt has no hints and no scope or injection rules. With the tools it still answered {{v1_data_correct}} of {{data_total}} data questions, where the model without tools answered {{base_data_correct}}. The <a class="usa-summary-box__link" href="evaluation.html">evaluation document</a> has the method, the failure analysis, and the limits, and the <a class="usa-summary-box__link" href="{{repo_url}}/tree/main/eval/results/2026-11-20">raw runs</a> are in the repository.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="usa-section usa-section--light" id="security" aria-labelledby="security-heading">
+      <div class="grid-container">
+        <div class="usa-prose margin-bottom-3">
+          <h2 id="security-heading">Security</h2>
+        </div>
+        <ul class="usa-card-group">
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">Public data only</h3></div>
+              <div class="usa-card__body"><p>Every source is public. No PII, CUI, or agency system data is in the store, the questions, or the traces.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">Read-only by construction</h3></div>
+              <div class="usa-card__body"><p>No write tools. The store is opened read-only. The server makes no network calls while answering.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">No credentials</h3></div>
+              <div class="usa-card__body"><p>The server needs none. The evaluation key stays in an uncommitted file and is not passed to the server process.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">Scope containment</h3></div>
+              <div class="usa-card__body"><p>The server never says a control is satisfied, and a scope judge checks that the agent does not either.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">Prompt injection tested</h3></div>
+              <div class="usa-card__body"><p>Three gold questions are injection attempts. The agent treats instructions inside a question as data.</p></div>
+            </div>
+          </li>
+          <li class="usa-card tablet:grid-col-6 desktop:grid-col-4">
+            <div class="usa-card__container">
+              <div class="usa-card__header"><h3 class="usa-card__heading">Pinned, hashed sources</h3></div>
+              <div class="usa-card__body"><p>A changed upstream file changes the snapshot hash that every answer reports.</p></div>
+            </div>
+          </li>
+        </ul>
+        <div class="usa-alert usa-alert--warning usa-alert--slim">
+          <div class="usa-alert__body">
+            <p class="usa-alert__text">The HTTP transport has no authentication. It is meant for a sandbox or a platform that puts its own access control in front of it.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="usa-section" id="limits" aria-labelledby="limits-heading">
+      <div class="grid-container usa-prose">
+        <h2 id="limits-heading">Limits</h2>
+        <ul>
+          <li>The CSF references come from NIST's CPRT export, which gives them at the family level. NIST publishes control-level mappings in a separate reference catalog that this server does not hold.</li>
+          <li>The gold set has {{total}} questions, written by the one developer who built the server. No gold question exercises the crosswalk tool.</li>
+          <li>Results describe one agent model and one judge model on one snapshot.</li>
+          <li>The content has not yet been reviewed by an Information System Security Officer or an assessor.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="usa-section usa-section--light" id="run" aria-labelledby="run-heading">
+      <div class="grid-container usa-prose">
+        <h2 id="run-heading">Run it</h2>
+        <p>You need <a href="https://docs.astral.sh/uv/">uv</a>. The server runs locally over stdio. The <a href="{{repo_url}}#readme">README</a> has the client configuration.</p>
+<pre><code>uv sync --group dev
+uv run python -m crosswalk_mcp.snapshot fetch
+uv run python -m crosswalk_mcp.store build
+uv run crosswalk-mcp</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="usa-footer usa-footer--slim">
+    <div class="grid-container usa-footer__return-to-top">
+      <a href="#">Return to top</a>
+    </div>
+    <div class="usa-footer__primary-section">
+      <div class="usa-footer__primary-container grid-row">
+        <div class="mobile-lg:grid-col-12">
+          <nav class="usa-footer__nav" aria-label="Footer navigation">
+            <ul class="grid-row grid-gap">
+              <li class="mobile-lg:grid-col-6 desktop:grid-col-auto usa-footer__primary-content"><a class="usa-footer__primary-link" href="{{repo_url}}">Code on GitHub</a></li>
+              <li class="mobile-lg:grid-col-6 desktop:grid-col-auto usa-footer__primary-content"><a class="usa-footer__primary-link" href="evaluation.html">Evaluation document</a></li>
+              <li class="mobile-lg:grid-col-6 desktop:grid-col-auto usa-footer__primary-content"><a class="usa-footer__primary-link" href="{{repo_url}}/tree/main/eval/results/2026-11-20">Raw evaluation runs</a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+    <div class="usa-footer__secondary-section">
+      <div class="grid-container">
+        <p class="margin-0 font-sans-xs">Controls Crosswalk MCP is an independent hackathon project built by one developer. It is not affiliated with or endorsed by NIST, GSA, or FedRAMP. Source content belongs to its publishers. Code is under the MIT license. This page uses the <a href="https://designsystem.digital.gov/">U.S. Web Design System</a>.</p>
+      </div>
+    </div>
+  </footer>
+
+  {{uswds_script}}
+</body>
+</html>
